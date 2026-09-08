@@ -1,0 +1,19 @@
+# ModelSim/Questa generated files
+work/
+transcript
+*.wlf
+*.vcd
+*.bak
+*.mpf
+*.mti
+*.qdb
+*.qpg
+*.qtl
+
+# Common HDL build/simulation outputs
+*.vvp
+*.out
+*.log
+*.jou
+*.pb
+*.rpt
