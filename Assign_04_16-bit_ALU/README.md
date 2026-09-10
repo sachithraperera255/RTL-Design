@@ -184,3 +184,7 @@ run
 # TEST 28 --- Input B Left Shift by 1 ---
 # TEST PASSED: B = 3 left shifted by 1 110
 ```
+
+## WAVEFORM_SAMPLE
+
+![Waveform sample](Waveform_sample.png)
