@@ -1,17 +1,17 @@
 # RTL Design
 
-Verilog RTL design coursework organized as individual lab and assignment projects.
+Verilog RTL design examples covering digital logic, counters, ALU design, and register-based storage.
 
-## Projects
+## Included Designs
 
-- `lab_01`: Basic digital circuit implementation.
-- `assignment_01`: Combinational/sequential logic assignment.
-- `lab_2.1`: 4-bit counter design with testbench.
-- `assignment_02`: 5-bit up/down counter with testbench.
-- `Assign_03_16-bit_ALU`: 16-bit ALU design with testbench.
-- `Assign_04_16-bit_ALU`: Modular 16-bit ALU design, testbench, and testbench plan.
-- `Register_8x16`: 8-entry, 16-bit register module with read/write enable controls.
+- Basic digital circuit implementations.
+- Combinational and sequential logic modules.
+- 4-bit counter design with testbench.
+- 5-bit up/down counter design with testbench.
+- 16-bit ALU design with testbench.
+- Modular 16-bit ALU with arithmetic, logic, comparison, shift, and decoder units.
+- 8-entry, 16-bit register module with read/write enable controls.
 
 ## Repository Contents
 
-The repository tracks source files, testbenches, and supporting project documents. Simulator working directories, waveform files, transcripts, backup files, and local project metadata are ignored.
+The repository tracks Verilog source files, testbenches, and supporting design documents. Simulator working directories, waveform files, transcripts, backup files, and local project metadata are ignored.
