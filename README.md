@@ -10,6 +10,7 @@ Verilog RTL design coursework organized as individual lab and assignment project
 - `assignment_02`: 5-bit up/down counter with testbench.
 - `Assign_03_16-bit_ALU`: 16-bit ALU design with testbench.
 - `Assign_04_16-bit_ALU`: Modular 16-bit ALU design, testbench, and testbench plan.
+- `Register_8x16`: 8-entry, 16-bit register module with read/write enable controls.
 
 ## Repository Contents
 
