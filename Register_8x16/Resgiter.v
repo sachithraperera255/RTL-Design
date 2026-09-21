@@ -16,7 +16,7 @@ module Register
 	always @(posedge clk or negedge rst)
 	begin
 		
-		if(!rst)
+		if(!rst) 
 		begin
 			register[0] <= 0;
 			register[1] <= 0;
