@@ -1,6 +1,6 @@
 # RTL Design
 
-Verilog RTL design examples covering digital logic, counters, ALU design, and register-based storage.
+Verilog RTL design examples covering digital logic, counters, ALU design, register-based storage, and finite-state machines.
 
 ## Included Designs
 
@@ -11,6 +11,7 @@ Verilog RTL design examples covering digital logic, counters, ALU design, and re
 - 16-bit ALU design with testbench.
 - Modular 16-bit ALU with arithmetic, logic, comparison, shift, and decoder units.
 - 8-entry, 16-bit register module with read/write enable controls.
+- Mealy finite-state machine digital lock that recognizes the `01011` input sequence, with a testbench.
 
 ## Repository Contents
 
