@@ -12,6 +12,7 @@ Verilog RTL design examples covering digital logic, counters, ALU design, regist
 - Modular 16-bit ALU with arithmetic, logic, comparison, shift, and decoder units.
 - 8-entry, 16-bit register module with read/write enable controls.
 - Mealy finite-state machine digital lock that recognizes the `01011` input sequence, with a testbench.
+- Mealy finite-state machine garage door controller with open and closed limit switches.
 
 ## Repository Contents
 
