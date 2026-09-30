@@ -53,6 +53,7 @@ module Controller
 			end
 			mv_up:
 			begin
+				up_m = 1'b1;
 				if(up_max)
 				begin
 					next_state = idle;
@@ -60,11 +61,12 @@ module Controller
 				else
 				begin
 					next_state = mv_up;
-					up_m = 1'b1;
+
 				end
 			end
 			mv_dn:
 			begin
+				dn_m = 1'b1;
 				if(dn_max)
 				begin
 					next_state = idle;
@@ -72,7 +74,7 @@ module Controller
 				else
 				begin
 					next_state = mv_dn;
-					dn_m = 1'b1;
+	
 				end
 			end
 			default:
