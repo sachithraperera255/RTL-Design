@@ -14,6 +14,7 @@ Verilog RTL design examples covering digital logic, counters, ALU design, regist
 - Mealy finite-state machine digital lock that recognizes the `01011` input sequence, with a testbench.
 - Mealy finite-state machine garage door controller with open and closed limit switches.
 - Programmable integer clock divider with an enable and active-low reset.
+- UART project in progress, currently containing an 8-bit transmitter serializer. See [UART status](UART/README.md).
 
 ## Repository Contents
 
