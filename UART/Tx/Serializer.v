@@ -1,11 +1,11 @@
 module Serializer
 	(
-		input wire [7:0]		data,
+		input wire [7:0]		data, // Information receive throu
 		input wire				clk,
 		input wire 				rst,
-		input wire				serial_en,
-		output reg				serial_done,
-		output reg				serial_data
+		input wire				serial_en, // enables the bit serialization (right shift)
+		output reg				serial_done, // output high when all the bits are serialized
+		output reg				serial_data // output serialized bits per clock cycle
 	);
 	
 	// register to store input data
