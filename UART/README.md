@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-This project is being developed piece by piece. It is incomplete, and this snapshot is an early development checkpoint.
+This project is being developed module by module. It is incomplete, and this snapshot is an early development checkpoint.
 
 ## Current Progress
 
