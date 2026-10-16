@@ -14,11 +14,17 @@ The waveform below shows the serializer processing `8'b00001010` (decimal 10). A
 
 ![UART serializer simulation waveform for input value 10](Tx/waveform.png)
 
+## Serializer Test Transcript
+
+The final simulation run in the transcript reports successful input capture, matching output for all eight bits (0 through 7), and a passing `serial_done` check for input value 10.
+
+![UART serializer test transcript showing all eight bit checks and the completion check passing](Tx/serializer_test_transcript.png)
+
 ## Remaining Work
 
 - Complete the UART transmitter, including baud timing and frame control.
 - Add testbenches and verify the UART behavior as each component is completed.
 
-The serializer alone is not a complete UART transmitter. The included testbench and waveform cover the serializer; verification of a complete UART transmitter remains future work.
+The serializer alone is not a complete UART transmitter. The included testbench, waveform, and test transcript cover the serializer; verification of a complete UART transmitter remains future work.
 
 Further components and verification results will be added as the project progresses.
