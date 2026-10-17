@@ -12,7 +12,7 @@ This project is being developed module by module. It is incomplete, and this sna
 
 The waveform below shows the serializer processing `8'b00001010` (decimal 10). After the enable pulse, `serial_data_tb` outputs the bits least significant bit first, and `serial_done_tb` asserts when the eighth bit is serialized.
 
-![UART serializer simulation waveform for input value 10](Tx/waveform.png)
+![UART serializer simulation waveform for input value 10](Tx/serializer_waveform.png)
 
 ## Serializer Test Transcript
 
