@@ -6,7 +6,7 @@ This project is being developed module by module. It is incomplete, and this sna
 
 - [Serializer](Tx/Serializer.v): captures an 8-bit input and serializes it least significant bit first over eight clock cycles. It provides a serialization enable input, a completion output, and an asynchronous active-low reset.
 - [Parity calculator](Tx/ParityCalc.v): calculates and stores the parity bit for an 8-bit input when enabled, with selectable even or odd parity and an asynchronous active-low reset.
-- [Serializer testbench](Tx/Serializer_tb.v): checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'h4E2`. The last literal is wider than its declared 8-bit width and is truncated to `8'hE2`.
+- [Serializer testbench](Tx/Serializer_tb.v): checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`.
 
 ## Parity Calculator
 
