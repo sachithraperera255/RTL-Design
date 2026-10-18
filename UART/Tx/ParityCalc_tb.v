@@ -108,6 +108,24 @@ module ParityCalc_tb();
 			$display("Test 04 failed: %b", parity_bit_tb);
 		end
 
+		@(negedge clk_tb)
+		data_tb				= 8'b00000000; //in decimal = 0
+		parity_calc_en_tb 	= 1'b0;
+		parity_type_tb		= 1'b1;
+
+		$display("Test 05: Test the hold behavior when the parity_calc_en_tb signal is LOW");
+		@(posedge clk_tb)
+		#1
+		if (parity_bit_tb == 0)
+		begin
+			$display("Test 05 passed: The circuit hold the previos value %b", parity_bit_tb);
+		end
+		else
+		begin
+			$display("Test 05 failed: The circuit did not hold the previous value %b", parity_bit_tb);
+		end
+
+
 		#10
 		$stop;
 	end
