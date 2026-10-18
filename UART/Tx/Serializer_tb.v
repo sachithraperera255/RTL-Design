@@ -110,7 +110,7 @@ module serializer_tb();
 		serialize_data(8'hFF, 1'b1);
 
 		@(negedge clk_tb)
-		serialize_data(8'h4E2, 1'b1);
+		serialize_data(8'hE2, 1'b1);
 
 		#20
 		$stop;

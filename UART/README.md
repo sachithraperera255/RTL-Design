@@ -7,6 +7,7 @@ This project is being developed module by module. It is incomplete, and this sna
 - [Serializer](Tx/Serializer.v): captures an 8-bit input and serializes it least significant bit first over eight clock cycles. It provides a serialization enable input, a completion output, and an asynchronous active-low reset.
 - [Parity calculator](Tx/ParityCalc.v): calculates and stores the parity bit for an 8-bit input when enabled, with selectable even or odd parity and an asynchronous active-low reset.
 - [Serializer testbench](Tx/Serializer_tb.v): checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`.
+- [Parity calculator testbench](Tx/ParityCalc_tb.v): checks all four combinations of even/odd set-bit counts and even/odd parity using `8'b01100100` (100) and `8'b01100101` (101).
 
 ## Parity Calculator
 
@@ -21,7 +22,7 @@ This project is being developed module by module. It is incomplete, and this sna
 
 For example, `8'h7D` contains six set bits, so its parity bit is `0` for even parity and `1` for odd parity. Reset clears the output regardless of the selected parity mode.
 
-The module compiles successfully with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. A dedicated parity testbench and functional simulation remain to be added.
+The parity calculator, serializer, and their testbenches compile successfully with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Functional simulation passes all four parity cases and all four serializer frames, including 32 serialized-bit checks and four completion checks.
 
 ## Serializer Simulation Waveform
 
@@ -35,12 +36,33 @@ The saved transcript below shows successful input capture, matching output for a
 
 ![UART serializer test transcript showing all eight bit checks and the completion check passing](Tx/serializer_test_transcript.png)
 
+## Parity Calculator Simulation Waveform
+
+The saved waveform shows the active-low reset clearing `parity_bit_tb`, followed by parity calculations for inputs 100 and 101. Each input is tested with odd parity and then even parity while `parity_calc_en_tb` is high.
+
+| Test | Data | Set-bit count | Parity mode | Expected parity bit | Result |
+| --- | --- | --- | --- | --- | --- |
+| 01 | `8'b01100100` (100) | 3 (odd) | Odd (`1`) | `0` | Passed |
+| 02 | `8'b01100100` (100) | 3 (odd) | Even (`0`) | `1` | Passed |
+| 03 | `8'b01100101` (101) | 4 (even) | Odd (`1`) | `1` | Passed |
+| 04 | `8'b01100101` (101) | 4 (even) | Even (`0`) | `0` | Passed |
+
+![UART parity calculator waveform showing reset and all four even/odd parity combinations](Tx/ParityCalc_waveform.png)
+
+## Parity Calculator Test Transcript
+
+The saved transcript shows all four parity checks passing with output values `0`, `1`, `1`, and `0`. The Test 04 description in the saved transcript says "odd parity"; its `parity_type_tb = 0` stimulus and expected output test even parity, as listed above.
+
+![UART parity calculator test transcript showing all four parity checks passing](Tx/ParityCalc_test_transcript.png)
+
+The testbench applies reset during initialization. Dedicated assertions for reset behavior and output retention while disabled remain to be added.
+
 ## Remaining Work
 
-- Add a parity calculator testbench covering even and odd parity, enable/hold behavior, and reset.
+- Extend the parity calculator testbench with explicit checks for enable/hold behavior and asynchronous reset, including reset after a nonzero parity result.
 - Complete the UART transmitter, including baud timing, frame control, and integration of the serializer and parity calculator.
 - Expand testbenches and verify the UART behavior as each component is completed.
 
-The serializer and parity calculator are building blocks for a UART transmitter. The included waveform and test transcript cover the serializer; parity simulation and verification of a complete UART transmitter remain future work.
+The serializer and parity calculator are building blocks for a UART transmitter. The included waveforms and test transcripts document their current module-level checks; integration and verification of a complete UART transmitter remain future work.
 
 Further components and verification results will be added as the project progresses.
