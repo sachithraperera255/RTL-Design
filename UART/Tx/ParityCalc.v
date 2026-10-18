@@ -19,6 +19,7 @@ module ParityCalc
 		begin
 				parity_bit <= (^data) ^ parity_type;
 		end
+		// The else block is not added here to assign default values because we want to retian the previous value
 	end
 
 endmodule
