@@ -107,7 +107,7 @@ module ParityCalc_tb();
 		begin
 			$display("Test 04 failed: %b", parity_bit_tb);
 		end
-
+		
 		@(negedge clk_tb)
 		data_tb				= 8'b00000000; //in decimal = 0
 		parity_calc_en_tb 	= 1'b0;
@@ -122,10 +122,10 @@ module ParityCalc_tb();
 		end
 		else
 		begin
-			$display("Test 05 failed: The circuit did not hold the previous value %b", parity_bit_tb);
+			$display("Test 05   failed: The circuit did not hold the previous value %b", parity_bit_tb);
 		end
-
-
+		
+		
 		#10
 		$stop;
 	end
