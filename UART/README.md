@@ -60,7 +60,6 @@ The testbench applies reset during initialization. Output retention of `0` while
 
 ## Remaining Work
 
-- Extend the parity calculator testbench with checks for retaining a parity value of `1` while disabled and for asynchronous reset, including reset after a nonzero parity result.
 - Complete the UART transmitter, including baud timing, frame control, and integration of the serializer and parity calculator.
 - Expand testbenches and verify the UART behavior as each component is completed.
 
