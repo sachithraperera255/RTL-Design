@@ -17,19 +17,20 @@ module FSM_Tx
 	);
 
 	
-	localparam		IDLE 	= 2'b00,
-					START	= 2'b01,
-					DATA	= 2'b10,
-					PARITY	= 2'b11;
+	localparam		IDLE 	= 3'b000,
+					START	= 3'b001,
+					DATA	= 3'b010,
+					PARITY	= 3'b011,
+					STOP	= 3'b111;
 
-	reg [1:0] next_state, current_state;
+	reg [2:0] next_state, current_state;
 
 	always @(posedge clk or negedge rst)
 	begin
 		if(!rst)
 		begin
 			busy 			<= 1'b0;
-			mux_sel 		<= 2'b00;
+			mux_sel 		<= 3'b000;
 			parity_calc_en 	<= 1'b0;
 			serial_en		<= 1'b0;
 		end
@@ -45,20 +46,33 @@ module FSM_Tx
 			IDLE:
 				if(data_valid)
 				begin
-					next_state = DATA;
+					next_state 		= START;
+					serial_en 		= 1'b1;
+					parity_calc_en 	= 1'b1;
+					busy			= 1'b0;
 				end
 				else
 				begin
 					next_state = IDLE;
 				end
-			DATA:
-				if(data_valid)
+			START:
+				if(serial_done)
 				begin
-					next_state = DATA;
+					if(parity_type)
+					begin
+						next_state = PARITY;
+						busy	   = 1'b1;
+					end
+					else
+					begin
+						next_state = STOP;
+						busy	   = 1'b1;
+					end
 				end
 				else
 				begin
-					next_state = IDLE;
+					next_state = START;
+					busy	   = 1'b1;
 				end
 		endcase
 	end
