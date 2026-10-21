@@ -12,8 +12,8 @@ module FSM_Tx
 			Following outputs are wires instead of registers because they are pulse signls
 			we don't need to hold signal until serializer and ParityCalc finishes they respective funtions
 		*/
-		output wire		parity_calc_en,
-		output wire		serial_en
+		output reg		parity_calc_en,
+		output reg		serial_en
 	);
 
 	
@@ -24,7 +24,7 @@ module FSM_Tx
 						STOP	= 3'b111;
 
 	reg [2:0] next_state, current_state;
-
+	reg parity_en_reg;
 
 
 	always @(posedge clk or negedge rst)
@@ -36,11 +36,21 @@ module FSM_Tx
 		else
 		begin
 			current_state <= next_state;
+			
+			if(current_state == IDLE && data_valid)
+			begin
+				parity_en_reg <= parity_en;
+			end
 		end
 	end
 
 	always @(*)
 	begin
+		busy 			= 1'b0;
+		mux_sel 		= 2'b00;
+		parity_calc_en	= 1'b0;
+		serial_en		= 1'b0;
+
 		case (current_state)
 			IDLE:
 			begin
@@ -55,17 +65,23 @@ module FSM_Tx
 			end
 			START:
 			begin
+				busy = 1'b1;
 				next_state = DATA;
 			end
 			DATA:
 			begin
-				if(parity_en && serial_done)
+				busy 		= 1'b1;
+				serial_en 	= 1'b1;
+				if(serial_done)
 				begin
-					next_state = PARITY;
-				end
-				else if(!parity_en && serial_done)
-				begin
-					next_state = STOP;
+					if(parity_en_reg)
+					begin
+						next_state = PARITY;
+					end
+					else
+					begin
+						next_state = STOP;
+					end
 				end
 				else
 				begin
@@ -74,15 +90,26 @@ module FSM_Tx
 			end
 			PARITY:
 			begin
-				next_state = STOP;
+				busy			= 1'b1;
+				parity_calc_en	= 1'b1;
+
+				next_state 	= STOP;
 			end
 			STOP:
 			begin
+				busy	= 1'b1;
+				
 				next_state = IDLE;
 			end
 		default:
 		begin
 			next_state = IDLE;
+			busy 			= 1'b0;
+			mux_sel 		= 2'b00;
+			parity_calc_en	= 1'b0;
+			serial_en		= 1'b0;
 		end
 		endcase
 	end
+
+endmodule
