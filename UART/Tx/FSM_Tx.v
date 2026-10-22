@@ -54,9 +54,12 @@ module FSM_Tx
 		case (current_state)
 			IDLE:
 			begin
-				if(data_valid)
+				if(rst && data_valid)
 				begin
-					next_state 	= START;
+					busy 			= 1'b0;
+					serial_en 		= 1'b1;
+					parity_calc_en 	= 1'b1;
+					next_state 		= START;
 				end
 				else
 				begin
@@ -65,13 +68,14 @@ module FSM_Tx
 			end
 			START:
 			begin
-				busy = 1'b1;
-				next_state = DATA;
+				busy 		= 1'b1;
+				mux_sel		= 2'b01;
+				next_state 	= DATA;
 			end
 			DATA:
 			begin
 				busy 		= 1'b1;
-				serial_en 	= 1'b1;
+				mux_sel		= 2'b10;
 				if(serial_done)
 				begin
 					if(parity_en_reg)
@@ -90,16 +94,15 @@ module FSM_Tx
 			end
 			PARITY:
 			begin
-				busy			= 1'b1;
-				parity_calc_en	= 1'b1;
-
+				busy		= 1'b1;
+				mux_sel		= 2'b11;
 				next_state 	= STOP;
 			end
 			STOP:
 			begin
-				busy	= 1'b1;
-				
-				next_state = IDLE;
+				busy		= 1'b1;
+				mux_sel	= 2'b00;
+				next_state  = IDLE;
 			end
 		default:
 		begin
