@@ -1,13 +1,30 @@
 # UART (Work in Progress)
 
-This project is being developed module by module. It is incomplete, and this snapshot is an early development checkpoint.
+This project is being developed module by module. The serializer, parity calculator, and transmit FSM implementations are complete; full transmitter integration and verification are still in progress.
 
 ## Current Progress
 
 - [Serializer](Tx/Serializer.v): captures an 8-bit input and serializes it least significant bit first over eight clock cycles. It provides a serialization enable input, a completion output, and an asynchronous active-low reset.
 - [Parity calculator](Tx/ParityCalc.v): calculates and stores the parity bit for an 8-bit input when enabled, with selectable even or odd parity and an asynchronous active-low reset.
+- [Transmit FSM](Tx/FSM_Tx.v): completed frame-control implementation with IDLE, START, DATA, PARITY, and STOP states, serializer and parity calculation enables, a busy output, and output multiplexer selection.
 - [Serializer testbench](Tx/Serializer_tb.v): checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`.
 - [Parity calculator testbench](Tx/ParityCalc_tb.v): checks all four combinations of even/odd set-bit counts and even/odd parity using `8'b01100100` (100) and `8'b01100101` (101), plus output retention when the calculation enable is low.
+
+## Transmit FSM
+
+The [FSM_Tx](Tx/FSM_Tx.v) implementation is complete. It sequences a frame through `IDLE -> START -> DATA -> PARITY -> STOP -> IDLE`, skipping `PARITY` when parity is disabled for the accepted frame.
+
+While in `IDLE`, `rst` must be high and `data_valid` asserted to request transmission. The FSM asserts `serial_en` and `parity_calc_en` so both modules capture the frame data on the next rising clock edge. It also latches `parity_en` on that edge, keeping the parity decision fixed for the frame. The asynchronous active-low reset returns the state register to `IDLE`.
+
+| State | `busy` | `mux_sel` | Behavior and next state |
+| --- | --- | --- | --- |
+| `IDLE` | `0` | `2'b00` | Waits for valid data; asserts both enables when a request is accepted, then enters `START`. |
+| `START` | `1` | `2'b01` | Selects the start bit and advances to `DATA` on the next rising edge. |
+| `DATA` | `1` | `2'b10` | Selects serialized data and waits for `serial_done`; then enters `PARITY` or `STOP` using the latched parity setting. |
+| `PARITY` | `1` | `2'b11` | Selects the calculated parity bit and advances to `STOP` on the next rising edge. |
+| `STOP` | `1` | `2'b00` | Selects the stop/idle level and returns to `IDLE` on the next rising edge. |
+
+`serial_en` and `parity_calc_en` are low outside the accepted request in `IDLE`. The output multiplexer and baud timing still need to be integrated with the FSM. A dedicated FSM testbench and simulation results remain to be added.
 
 ## Parity Calculator
 
@@ -60,9 +77,10 @@ The testbench applies reset during initialization. Output retention of `0` while
 
 ## Remaining Work
 
-- Complete the UART transmitter, including baud timing, frame control, and integration of the serializer and parity calculator.
-- Expand testbenches and verify the UART behavior as each component is completed.
+- Complete the UART transmitter by adding baud timing and the output multiplexer, and integrating the completed FSM, serializer, and parity calculator.
+- Add a dedicated FSM testbench covering reset, state transitions, parity enabled and disabled, enable signals, busy behavior, and multiplexer selection.
+- Verify complete UART frames after integration and expand the existing module testbenches.
 
-The serializer and parity calculator are building blocks for a UART transmitter. The included waveforms and test transcripts document their current module-level checks; integration and verification of a complete UART transmitter remain future work.
+The serializer, parity calculator, and FSM are building blocks for a UART transmitter. The included waveforms and test transcripts document serializer and parity calculator checks; FSM simulation, integration, and verification of a complete UART transmitter remain future work.
 
 Further components and verification results will be added as the project progresses.
