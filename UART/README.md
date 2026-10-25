@@ -8,6 +8,7 @@ This project is being developed module by module. The serializer, parity calcula
 - [Parity calculator](Tx/ParityCalc.v): calculates and stores the parity bit for an 8-bit input when enabled, with selectable even or odd parity and an asynchronous active-low reset.
 - [Transmit FSM](Tx/FSM_Tx.v): completed frame-control implementation with IDLE, START, DATA, PARITY, and STOP states, serializer and parity calculation enables, a busy output, and output multiplexer selection.
 - [Output multiplexer](Tx/Mux_Tx.v): implements module `Mux`, selecting the stop/idle level, start bit, serialized data, or parity bit using the FSM selection encoding.
+- [Output multiplexer testbench](Tx/Mux_Tx_tb.v): checks the stop/idle level, start bit, serialized data selection, and parity selection; all four saved simulation checks pass.
 - [Serializer testbench](Tx/Serializer_tb.v): checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`.
 - [Parity calculator testbench](Tx/ParityCalc_tb.v): checks all four combinations of even/odd set-bit counts and even/odd parity using `8'b01100100` (100) and `8'b01100101` (101), plus output retention when the calculation enable is low.
 
@@ -40,7 +41,28 @@ While in `IDLE`, `rst` must be high and `data_valid` asserted to request transmi
 
 The output follows the selected input without a clock or reset. The `default` branch drives `tx_out` low if the selector contains an unknown or high-impedance bit. In the transmitter top level, connect the FSM's `mux_sel`, the serializer's `serial_data` to `serialized_data`, and the parity calculator's `parity_bit`; `tx_out` is the UART transmit output. The multiplexer selects the line value; the integrated transmitter must provide the required bit timing.
 
-`Mux_Tx.v` compiles successfully with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Functional multiplexer simulation results remain to be added.
+The multiplexer and its [testbench](Tx/Mux_Tx_tb.v) compile successfully with ModelSim Intel FPGA Edition 2020.1. The saved simulation transcript shows all four functional checks passing.
+
+| Test | `mux_sel` | Selected value | Expected `tx_out` | Result |
+| --- | --- | --- | --- | --- |
+| 01: Stop/idle | `2'b00` | Constant high | `1` | Passed |
+| 02: Start | `2'b01` | Constant low | `0` | Passed |
+| 03: Data | `2'b10` | `serialized_data = 1` | `1` | Passed |
+| 04: Parity | `2'b11` | `parity_bit = 1` | `1` | Passed |
+
+### Multiplexer Simulation Waveform
+
+The waveform shows the selector advancing through `00`, `01`, `10`, and `11`, with `tx_out` following the stop, start, data, and parity values. The testbench uses a `1ns/1ps` timescale and checks each selection after a 1 ns settling delay.
+
+![UART transmit multiplexer waveform showing stop, start, data, and parity selection](Tx/mux_tx_waveform.png)
+
+### Multiplexer Test Transcript
+
+The saved ModelSim transcript shows successful compilation and all four multiplexer checks passing.
+
+![UART transmit multiplexer transcript showing all four checks passing](Tx/mux_tx_transcript.png)
+
+These checks cover each selector value. Additional coverage for low data and parity inputs, changes to unselected inputs, and unknown or high-impedance selector values remains to be added.
 
 ## Parity Calculator
 
@@ -95,9 +117,9 @@ The testbench applies reset during initialization. Output retention of `0` while
 
 - Complete the UART transmitter by adding baud timing and integrating the completed FSM, serializer, parity calculator, and output multiplexer.
 - Add a dedicated FSM testbench covering reset, state transitions, parity enabled and disabled, enable signals, busy behavior, and multiplexer selection.
-- Add a dedicated multiplexer testbench and saved simulation results.
+- Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Verify complete UART frames after integration and expand the existing module testbenches.
 
-The serializer, parity calculator, FSM, and output multiplexer are building blocks for a UART transmitter. The included waveforms and test transcripts document serializer and parity calculator checks; FSM simulation, integration, and verification of a complete UART transmitter remain future work.
+The serializer, parity calculator, FSM, and output multiplexer are building blocks for a UART transmitter. The included waveforms and test transcripts document serializer, parity calculator, and output multiplexer checks; FSM simulation, integration, and verification of a complete UART transmitter remain future work.
 
 Further components and verification results will be added as the project progresses.

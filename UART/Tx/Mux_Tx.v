@@ -22,7 +22,7 @@ module Mux
 			end
 			2'b01:
 			begin
-				tx_out	= 1'b0;
+				tx_out	= 1'b0; // START
 				/*
 					Why does the tx_out is set to low in START state?
 					- the tx_out is set to low in START  because when the transmission is ready send data UART protocol set the 
