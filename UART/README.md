@@ -8,7 +8,7 @@ This project is being developed module by module. The serializer, parity calcula
 | --- | --- | --- |
 | [Serializer](#serializer) | Complete | Four frames checked; saved waveform and transcript included. |
 | [Parity calculator](#parity-calculator) | Complete | Five checks pass; saved waveform and transcript included. |
-| [Transmit FSM](#transmit-fsm) | Complete | Dedicated testbench and simulation results pending. |
+| [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; saved waveform and transcript included. |
 
 ## Serializer
@@ -110,11 +110,34 @@ While in `IDLE`, `rst` must be high and `data_valid` asserted to request transmi
 
 ### Testbench
 
-A dedicated FSM testbench remains to be added. Planned coverage includes reset, state transitions, parity enabled and disabled, enable signals, busy behavior, and multiplexer selection.
+[FSM_Tx_tb.v](Tx/FSM_Tx_tb.v) applies an active-low reset, pulses `data_valid` with parity enabled, and drives `serial_done` to exercise `IDLE -> START -> DATA -> PARITY -> STOP -> IDLE`. It uses a `1ns/1ps` timescale and a 5 ns clock period. The request enables are checked after a 0.1 ns combinational settling delay; state outputs are checked 1 ns after rising clock edges.
+
+The six checks cover request enables in `IDLE`, busy and multiplexer selection in each active state, and the return to idle. Reset is applied but has no dedicated assertion. Parity-disabled frames, longer waits in `DATA`, changes to `parity_en` after acceptance, reset during transmission, and enable deassertion outside `IDLE` remain to be checked.
 
 ### Results
 
-FSM simulation results, waveforms, and test transcripts are pending.
+The saved ModelSim transcript reports eight successful module/testbench compiles with no errors and all six FSM checks passing. The testbench drives the completion input directly; full transmitter integration remains to be verified.
+
+| Test | Checked behavior | Result |
+| --- | --- | --- |
+| 01: IDLE request | `busy = 0`, `serial_en = 1`, `parity_calc_en = 1` | Passed |
+| 02: START | `busy = 1`, `mux_sel = 2'b01` | Passed |
+| 03: DATA | `busy = 1`, `mux_sel = 2'b10` | Passed |
+| 04: PARITY | `busy = 1`, `mux_sel = 2'b11` | Passed |
+| 05: STOP | `busy = 1`, `mux_sel = 2'b00` | Passed |
+| 06: Return to IDLE | `busy = 0`, `mux_sel = 2'b00` | Passed |
+
+#### Simulation Waveform
+
+The waveform shows reset, the request enable pulses, and `mux_sel` progressing through `00`, `01`, `10`, `11`, and `00`. The FSM asserts `busy` during the active frame states and clears it when it returns to `IDLE`.
+
+![UART transmit FSM waveform showing a parity-enabled frame and return to idle](Tx/fsm_tx_waveform.png)
+
+#### Test Transcript
+
+The saved transcript shows successful compilation and all six FSM checks passing.
+
+![UART transmit FSM transcript showing all six state and control checks passing](Tx/fsm_tx_transcript.png)
 
 ## Output Multiplexer
 
@@ -163,6 +186,6 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 ## Remaining Work
 
 - Complete the UART transmitter by adding baud timing and integrating the completed FSM, serializer, parity calculator, and output multiplexer.
-- Add the dedicated FSM testbench and simulation results described above.
+- Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Verify complete UART frames after integration and expand the existing module testbenches.

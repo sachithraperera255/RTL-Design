@@ -97,7 +97,7 @@ module FSM_Tx
 			STOP:
 			begin
 				busy		= 1'b1;
-				mux_sel	= 2'b00;
+				mux_sel		= 2'b00;
 				next_state  = IDLE;
 			end
 		default:
