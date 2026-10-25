@@ -8,10 +8,6 @@ module FSM_Tx
 
 		output reg			busy,
 		output reg [1:0]	mux_sel,
-		/*
-			Following outputs are wires instead of registers because they are pulse signls
-			we don't need to hold signal until serializer and ParityCalc finishes they respective funtions
-		*/
 		output reg		parity_calc_en,
 		output reg		serial_en
 	);
