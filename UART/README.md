@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-This project is being developed module by module. The serializer, parity calculator, transmit FSM, and output multiplexer implementations are complete; full transmitter integration and verification are still in progress.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The top level and its four submodules compile successfully; full-frame functional verification and baud timing integration remain in progress.
 
 ## Current Progress
 
@@ -10,16 +10,60 @@ This project is being developed module by module. The serializer, parity calcula
 | [Parity calculator](#parity-calculator) | Complete | Five checks pass; saved waveform and transcript included. |
 | [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; saved waveform and transcript included. |
+| [Transmitter top level](#transmitter-top-level) | Integration complete | Top level and all four submodules compile with zero errors and warnings; full-frame simulation pending. |
+
+## Transmitter Top Level
+
+### RTL Design
+
+[TOP_UART_Tx.v](Tx/TOP_UART_Tx.v) defines the module `TOP_Tx` and connects the four transmitter blocks:
+
+| Instance | Connection and role |
+| --- | --- |
+| `Serializer_inst` | Captures `INPUT_DATA` on `SERIAL_ENABLE`, supplies `SERIAL_DATA`, and signals completion with `SERIAL_DONE`. |
+| `ParityCalc_inst` | Captures the parity calculation for `INPUT_DATA` using `PARITY_TYPE` when `PARITY_CALC_ENABLE` is asserted. |
+| `FSM_Tx_inst` | Accepts `DATA_VALID`, latches the frame's `PARITY_ENABLE`, drives the capture enables and `MUX_SELECT`, and exposes `BUSY`. |
+| `MUX_inst` | Selects idle/stop, start, serialized data, or parity to drive `TX_OUT`. |
+
+### Interface
+
+| Port | Direction | Behavior |
+| --- | --- | --- |
+| `INPUT_DATA[INPUT_DATA_WIDTH-1:0]` | Input | Parallel data captured when a request is accepted in idle. |
+| `DATA_VALID` | Input | Request transmission while `BUSY` is low; pulse for one clock cycle to request one frame. |
+| `PARITY_ENABLE` | Input | `1` includes a parity bit; the FSM latches this setting when accepting the frame. |
+| `PARITY_TYPE` | Input | `0` selects even parity; `1` selects odd parity. Sampled by the parity calculator at frame acceptance. |
+| `CLK` | Input | Common clock for the serializer, parity calculator, and FSM. |
+| `RST` | Input | Asynchronous active-low reset; returns the FSM to idle and clears serializer/parity state. |
+| `BUSY` | Output | High during the start, data, optional parity, and stop states. |
+| `TX_OUT` | Output | UART serial output: idle high, start low, eight data bits least significant bit first, optional parity, then stop high. |
+
+Keep `INPUT_DATA`, `PARITY_ENABLE`, and `PARITY_TYPE` stable through the rising edge that accepts `DATA_VALID`. Requests during `BUSY` are not queued. Holding `DATA_VALID` high can request another frame when the FSM returns to idle.
+
+`INPUT_DATA_WIDTH` defaults to `8` and is passed to the `DATA_WIDTH` parameters of both the serializer and parity calculator. The parity calculation uses the configured width, but the serializer still has an eight-bit shift register, a three-bit counter, and a fixed eight-bit completion count. Keep `INPUT_DATA_WIDTH = 8` until the serializer internals and tests are updated for other widths.
+
+There is no internal baud-rate generator or clock divider. The supplied `CLK` sets the bit timing: each start, data, parity, and stop bit occupies one clock period. Add baud timing before driving the transmitter from a faster system clock.
+
+### Compilation and Verification Status
+
+The following ModelSim Intel FPGA Edition 2020.1 commands compile the complete transmitter from the `UART/Tx` directory:
+
+```text
+vlib work
+vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v
+```
+
+The default-width top level and all four submodules compile with zero errors and zero warnings. The module testbench results below describe the individual blocks. A dedicated top-level testbench, full-frame simulation results, and integration waveforms have not yet been added.
 
 ## Serializer
 
 ### RTL Design
 
-[Serializer.v](Tx/Serializer.v) captures an 8-bit input when `serial_en` is high and the serializer is inactive. After capture, it shifts the stored data right and outputs one bit per rising clock edge, least significant bit first, over eight clock cycles.
+[Serializer.v](Tx/Serializer.v) exposes a `DATA_WIDTH` parameter (default `8`) for its input port, but its internal storage and completion count currently remain fixed at eight bits. With the default width, it captures an 8-bit input when `serial_en` is high and the serializer is inactive. After capture, it shifts the stored data right and outputs one bit per rising clock edge, least significant bit first, over eight clock cycles.
 
 | Signal | Behavior |
 | --- | --- |
-| `data[7:0]` | Input byte captured when a serialization request is accepted. |
+| `data[DATA_WIDTH-1:0]` | Input captured when a serialization request is accepted; use the default width of eight bits with the current serializer internals. |
 | `serial_en` | Enables input capture when the serializer is inactive. |
 | `serial_data` | Registered serial output, starting with bit 0. |
 | `serial_done` | Asserts with the eighth serialized bit and clears on the next clock edge. |
@@ -49,11 +93,11 @@ The saved transcript shows successful input capture, matching output for all eig
 
 ### RTL Design
 
-[ParityCalc.v](Tx/ParityCalc.v) computes `parity_bit <= (^data) ^ parity_type` on the rising edge of `clk` when `parity_calc_en` is high.
+[ParityCalc.v](Tx/ParityCalc.v) computes `parity_bit <= (^data) ^ parity_type` on the rising edge of `clk` when `parity_calc_en` is high. Its `DATA_WIDTH` parameter defaults to `8`; the reduction XOR includes all configured input bits.
 
 | Input | Behavior |
 | --- | --- |
-| `data[7:0]` | Eight data bits used to calculate parity. |
+| `data[DATA_WIDTH-1:0]` | Data bits used to calculate parity; eight bits by default. |
 | `parity_calc_en` | Enables an update on the rising clock edge; when low, the previous parity bit is retained. |
 | `parity_type` | `0` selects even parity; `1` selects odd parity. |
 | `rst` | Asynchronous active-low reset that clears `parity_bit` to `0`. |
@@ -106,7 +150,7 @@ While in `IDLE`, `rst` must be high and `data_valid` asserted to request transmi
 | `PARITY` | `1` | `2'b11` | Selects the calculated parity bit and advances to `STOP` on the next rising edge. |
 | `STOP` | `1` | `2'b00` | Selects the stop/idle level and returns to `IDLE` on the next rising edge. |
 
-`serial_en` and `parity_calc_en` are low outside the accepted request in `IDLE`. The output multiplexer is implemented in `Mux_Tx.v`; connecting the transmitter modules and adding baud timing remain integration work.
+`serial_en` and `parity_calc_en` are low outside the accepted request in `IDLE`. The output multiplexer is implemented in `Mux_Tx.v` and connected to the FSM in `TOP_Tx`. Baud timing and full-frame verification remain integration work.
 
 ### Testbench
 
@@ -152,7 +196,7 @@ The saved transcript shows successful compilation and all six FSM checks passing
 | `2'b10` | `serialized_data` | Current data bit from the serializer. |
 | `2'b11` | `parity_bit` | Calculated parity bit. |
 
-The output follows the selected input without a clock or reset. The `default` branch drives `tx_out` low if the selector contains an unknown or high-impedance bit. In the transmitter top level, connect the FSM's `mux_sel`, the serializer's `serial_data` to `serialized_data`, and the parity calculator's `parity_bit`; `tx_out` is the UART transmit output. The multiplexer selects the line value; the integrated transmitter must provide the required bit timing.
+The output follows the selected input without a clock or reset. The `default` branch drives `tx_out` low if the selector contains an unknown or high-impedance bit. In `TOP_Tx`, the FSM's `mux_sel`, the serializer's `serial_data`, and the parity calculator's `parity_bit` are connected through `MUX_SELECT`, `SERIAL_DATA`, and `PARITY_BIT`; the multiplexer output drives `TX_OUT`. The multiplexer selects the line value; the integrated transmitter must provide the required bit timing.
 
 ### Testbench
 
@@ -185,7 +229,9 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 
 ## Remaining Work
 
-- Complete the UART transmitter by adding baud timing and integrating the completed FSM, serializer, parity calculator, and output multiplexer.
+- Add baud timing for operation from a faster system clock.
+- Add a top-level testbench for `TOP_Tx`, covering complete frames with parity enabled and disabled, both parity types, busy behavior, repeated requests, and reset during transmission.
+- Generalize the serializer shift register and completion count before supporting non-default data widths.
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
-- Verify complete UART frames after integration and expand the existing module testbenches.
+- Verify complete UART frames through `TX_OUT` and expand the existing module testbenches.

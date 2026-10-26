@@ -14,7 +14,7 @@ Verilog RTL design examples covering digital logic, counters, ALU design, regist
 - Mealy finite-state machine digital lock that recognizes the `01011` input sequence, with a testbench.
 - Mealy finite-state machine garage door controller with open and closed limit switches.
 - Programmable integer clock divider with an enable and active-low reset.
-- UART project in progress with an 8-bit serializer, parity calculator, transmit FSM, and output multiplexer; all four modules have testbenches with saved simulation waveform and transcript PNGs, including six passing FSM checks for a parity-enabled frame. See [UART status](UART/README.md).
+- UART transmitter with a `TOP_Tx` top level connecting the serializer, parity calculator, transmit FSM, and output multiplexer. The integrated RTL compiles with zero errors and warnings; all four component modules have testbenches with saved waveform and transcript PNGs. Full-frame verification, baud timing, and generalized serializer widths remain in progress. See [UART status](UART/README.md).
 
 ## Repository Contents
 
