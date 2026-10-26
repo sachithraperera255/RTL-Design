@@ -8,8 +8,8 @@ module FSM_Tx
 
 		output reg			busy,
 		output reg [1:0]	mux_sel,
-		output reg		parity_calc_en,
-		output reg		serial_en
+		output reg			parity_calc_en,
+		output reg			serial_en
 	);
 
 	
