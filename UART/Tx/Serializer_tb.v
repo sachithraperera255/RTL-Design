@@ -27,6 +27,9 @@ module serializer_tb();
 	endtask
 	
 	integer i;
+	integer test_count = 0;
+	integer fail_count = 0;
+
 	task serialize_data;
 		
 		input [7:0] data_in; // Receives 8-bit data
@@ -41,12 +44,16 @@ module serializer_tb();
 		begin
 			@(posedge clk_tb)
 			#1
+
+			test_count = test_count + 1;
+			// check if data load correctly
 			if(DUT.input_data === data_tb && DUT.counter === 3'd0 && DUT.serial_done === 1'b0 && DUT.activate === 1'b1)
 			begin
 				$display("Test Passed!!!");
 			end
 			else
 			begin
+				fail_count = fail_count + 1;
 				$display("Test Failed!!!");
 			end
 		
@@ -58,23 +65,31 @@ module serializer_tb();
 			
 				@(posedge clk_tb)
 				#1
+
+				test_count = test_count + 1;
+				// check if data is getting serialized bit by bit starting from least significat bit
 				if(serial_data_tb === data_tb[i])
 				begin
 					$display("Bit %d match", i);
 				end
 				else
 				begin
+					fail_count = fail_count + 1;
 					$display("Mismatch, %d", i);
 				end
 			
 				if(i == 7)
 				begin
+
+					test_count = test_count + 1;
+					// check if the serial_done is setting to high after transmitting the last bit
 					if(serial_done_tb === 1'b1)
 					begin
 						$display("serial_done passed!!!");
 					end
 					else
 					begin
+						fail_count = fail_count + 1;
 						$display("serial_done failed!!!");
 					end
 				end
@@ -113,7 +128,22 @@ module serializer_tb();
 		serialize_data(8'hE2, 1'b1);
 
 		#20
-		$stop;
+        // Final test summary
+        $display("\n----------------------------");
+        $display("Total checks : %0d", test_count);
+        $display("Passed       : %0d", test_count - fail_count);
+        $display("Failed       : %0d", fail_count);
+        $display("----------------------------");
+
+        if(fail_count > 0)
+        begin
+            $fatal(1, "SERIALIZER TESTBENCH FAILED");
+        end
+        else
+        begin
+            $display("ALL SERIALIZER TESTS PASSED");
+            $stop;
+        end
 	end
 	
 

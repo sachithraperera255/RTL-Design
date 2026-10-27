@@ -6,7 +6,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 
 | Module | RTL design | Testbench and results |
 | --- | --- | --- |
-| [Serializer](#serializer) | Complete | Four frames checked; saved waveform and transcript included. |
+| [Serializer](#serializer) | Complete | Four frames, 40 checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Parity calculator](#parity-calculator) | Complete | Five checks pass; saved waveform and transcript included. |
 | [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; saved waveform and transcript included. |
@@ -71,11 +71,11 @@ The fixed 8-bit top level and all four submodules compile with zero errors and z
 
 ### Testbench
 
-[Serializer_tb.v](Tx/Serializer_tb.v) applies reset, pulses the enable, and checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`. Each frame includes eight serialized-bit checks and a check that `serial_done` asserts with the final bit.
+[Serializer_tb.v](Tx/Serializer_tb.v) applies reset, pulses the enable, and checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`. Each frame includes one input-capture check, eight serialized-bit checks, and a check that `serial_done` asserts with the final bit, giving 40 checks across all four frames. The testbench counts total checks and failures and prints a final total/passed/failed summary. Any failed check causes `$fatal(1, "SERIALIZER TESTBENCH FAILED")`; a successful run prints `ALL SERIALIZER TESTS PASSED` and pauses with `$stop`.
 
 ### Results
 
-The serializer and its testbench compile successfully with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Functional simulation passes all four frames, including 32 serialized-bit checks and four completion checks.
+The serializer and its testbench compile successfully with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Functional simulation passes all four frames: four input-capture checks, 32 serialized-bit checks, and four completion checks. The updated testbench reports 40 total checks, 40 passed, and 0 failed.
 
 #### Simulation Waveform
 
@@ -85,7 +85,7 @@ The saved waveform shows the serializer processing `8'b00001010` (decimal 10). A
 
 #### Test Transcript
 
-The saved transcript shows successful input capture, matching output for all eight bits (0 through 7), and a passing `serial_done` check for input value 10. The current testbench also includes the additional input values listed above.
+The saved transcript shows successful input capture, matching output for all eight bits (0 through 7), and a passing `serial_done` check for input value 10. The current testbench also includes the additional input values listed above and the final check summary; the saved image predates that summary.
 
 ![UART serializer test transcript showing all eight bit checks and the completion check passing](Tx/serializer_test_transcript.png)
 
