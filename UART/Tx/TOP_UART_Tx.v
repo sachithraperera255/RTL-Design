@@ -1,10 +1,6 @@
 module	TOP_Tx
-
-	#(
-		parameter	INPUT_DATA_WIDTH = 8
-	)
 	(
-		input wire [INPUT_DATA_WIDTH-1:0]	INPUT_DATA,
+		input wire [7:0]					INPUT_DATA,
 		input wire							PARITY_ENABLE,
 		input wire							DATA_VALID,
 		input wire							PARITY_TYPE,
@@ -21,11 +17,7 @@ module	TOP_Tx
 	wire [1:0] 	MUX_SELECT;
 
 	//Serializer instantiation
-	Serializer
-	#(
-		.DATA_WIDTH(INPUT_DATA_WIDTH)
-	)
-	Serializer_inst
+	Serializer Serializer_inst
 	(
 		.data(INPUT_DATA),
 		.clk(CLK),
@@ -37,11 +29,7 @@ module	TOP_Tx
 
 
 	//Parity calculator instantiation
-	ParityCalc
-	#(
-		.DATA_WIDTH(INPUT_DATA_WIDTH)
-	)
-	ParityCalc_inst
+	ParityCalc ParityCalc_inst
 	(
 		.data(INPUT_DATA),
 		.parity_calc_en(PARITY_CALC_ENABLE),

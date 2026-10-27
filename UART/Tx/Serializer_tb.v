@@ -29,7 +29,7 @@ module serializer_tb();
 	integer i;
 	task serialize_data;
 		
-		input [7:0] data_in; // Receives 8-byte data
+		input [7:0] data_in; // Receives 8-bit data
 		input 		enable_signal; // Receives the activate signal
 		
 	begin

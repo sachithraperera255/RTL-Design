@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module ParityCalc_tb();
 
 	reg	[7:0]	data_tb;
@@ -96,7 +98,7 @@ module ParityCalc_tb();
 		parity_calc_en_tb 	= 1'b1;
 		parity_type_tb		= 1'b0;
 
-		$display("Test 04: Even count and odd parity: 0 ^ 0");
+		$display("Test 04: Even count and even parity: 0 ^ 0");
 		@(posedge clk_tb)
 		#1
 		if (parity_bit_tb == 0)

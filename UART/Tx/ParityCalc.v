@@ -1,13 +1,7 @@
 
 module ParityCalc
-	
-	// Parameters
-	#(
-		parameter DATA_WIDTH = 8
-	)
-
 	(
-		input wire [DATA_WIDTH-1:0]	data,
+		input wire [7:0]				data,
 		input wire					parity_calc_en,
 		input wire					parity_type,
 		input wire					clk,

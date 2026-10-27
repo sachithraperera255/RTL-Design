@@ -29,7 +29,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 
 | Port | Direction | Behavior |
 | --- | --- | --- |
-| `INPUT_DATA[INPUT_DATA_WIDTH-1:0]` | Input | Parallel data captured when a request is accepted in idle. |
+| `INPUT_DATA[7:0]` | Input | Parallel data captured when a request is accepted in idle. |
 | `DATA_VALID` | Input | Request transmission while `BUSY` is low; pulse for one clock cycle to request one frame. |
 | `PARITY_ENABLE` | Input | `1` includes a parity bit; the FSM latches this setting when accepting the frame. |
 | `PARITY_TYPE` | Input | `0` selects even parity; `1` selects odd parity. Sampled by the parity calculator at frame acceptance. |
@@ -40,7 +40,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 
 Keep `INPUT_DATA`, `PARITY_ENABLE`, and `PARITY_TYPE` stable through the rising edge that accepts `DATA_VALID`. Requests during `BUSY` are not queued. Holding `DATA_VALID` high can request another frame when the FSM returns to idle.
 
-`INPUT_DATA_WIDTH` defaults to `8` and is passed to the `DATA_WIDTH` parameters of both the serializer and parity calculator. The parity calculation uses the configured width, but the serializer still has an eight-bit shift register, a three-bit counter, and a fixed eight-bit completion count. Keep `INPUT_DATA_WIDTH = 8` until the serializer internals and tests are updated for other widths.
+The transmitter uses a fixed 8-bit data width. `TOP_Tx`, `Serializer`, and `ParityCalc` expose 8-bit data ports and have no data-width parameters. The serializer uses an eight-bit shift register and a three-bit counter to transmit exactly eight data bits.
 
 There is no internal baud-rate generator or clock divider. The supplied `CLK` sets the bit timing: each start, data, parity, and stop bit occupies one clock period. Add baud timing before driving the transmitter from a faster system clock.
 
@@ -53,17 +53,17 @@ vlib work
 vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v
 ```
 
-The default-width top level and all four submodules compile with zero errors and zero warnings. The module testbench results below describe the individual blocks. A dedicated top-level testbench, full-frame simulation results, and integration waveforms have not yet been added.
+The fixed 8-bit top level and all four submodules compile with zero errors and zero warnings. On October 27, 2026, the top level, all four submodules, and all four component testbenches were recompiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The component simulations passed four serializer frames (32 bit checks and four completion checks), five parity checks, six FSM checks, and four multiplexer checks. The module testbench results below describe the individual blocks. A dedicated top-level testbench, full-frame simulation results, and integration waveforms have not yet been added.
 
 ## Serializer
 
 ### RTL Design
 
-[Serializer.v](Tx/Serializer.v) exposes a `DATA_WIDTH` parameter (default `8`) for its input port, but its internal storage and completion count currently remain fixed at eight bits. With the default width, it captures an 8-bit input when `serial_en` is high and the serializer is inactive. After capture, it shifts the stored data right and outputs one bit per rising clock edge, least significant bit first, over eight clock cycles.
+[Serializer.v](Tx/Serializer.v) uses a fixed 8-bit input port, shift register, and completion count. It captures an 8-bit input when `serial_en` is high and the serializer is inactive. After capture, it shifts the stored data right and outputs one bit per rising clock edge, least significant bit first, over eight clock cycles.
 
 | Signal | Behavior |
 | --- | --- |
-| `data[DATA_WIDTH-1:0]` | Input captured when a serialization request is accepted; use the default width of eight bits with the current serializer internals. |
+| `data[7:0]` | 8-bit input captured when a serialization request is accepted. |
 | `serial_en` | Enables input capture when the serializer is inactive. |
 | `serial_data` | Registered serial output, starting with bit 0. |
 | `serial_done` | Asserts with the eighth serialized bit and clears on the next clock edge. |
@@ -93,11 +93,11 @@ The saved transcript shows successful input capture, matching output for all eig
 
 ### RTL Design
 
-[ParityCalc.v](Tx/ParityCalc.v) computes `parity_bit <= (^data) ^ parity_type` on the rising edge of `clk` when `parity_calc_en` is high. Its `DATA_WIDTH` parameter defaults to `8`; the reduction XOR includes all configured input bits.
+[ParityCalc.v](Tx/ParityCalc.v) computes `parity_bit <= (^data) ^ parity_type` on the rising edge of `clk` when `parity_calc_en` is high. Its input is fixed at eight bits; the reduction XOR includes all eight input bits.
 
 | Input | Behavior |
 | --- | --- |
-| `data[DATA_WIDTH-1:0]` | Data bits used to calculate parity; eight bits by default. |
+| `data[7:0]` | Eight data bits used to calculate parity. |
 | `parity_calc_en` | Enables an update on the rising clock edge; when low, the previous parity bit is retained. |
 | `parity_type` | `0` selects even parity; `1` selects odd parity. |
 | `rst` | Asynchronous active-low reset that clears `parity_bit` to `0`. |
@@ -108,7 +108,7 @@ For example, `8'h7D` contains six set bits, so its parity bit is `0` for even pa
 
 [ParityCalc_tb.v](Tx/ParityCalc_tb.v) checks all four combinations of even/odd set-bit counts and even/odd parity using `8'b01100100` (100) and `8'b01100101` (101). A fifth check changes the data to `8'b00000000` and selects odd parity while disabling calculation; the output must retain its previous value of `0`, although the new inputs would produce `1` if enabled.
 
-The testbench applies reset during initialization. Dedicated assertions for reset behavior and retention of `1` remain to be added.
+The testbench uses a `1ns/1ps` timescale and applies reset during initialization. Dedicated assertions for reset behavior and retention of `1` remain to be added.
 
 ### Results
 
@@ -130,7 +130,7 @@ The saved waveform shows the active-low reset clearing `parity_bit_tb`, followed
 
 #### Test Transcript
 
-The saved transcript shows all five checks passing: the four parity calculations produce `0`, `1`, `1`, and `0`, and Test 05 confirms that the output holds `0` when `parity_calc_en_tb` is low. The Test 04 description in the saved transcript says "odd parity"; its `parity_type_tb = 0` stimulus and expected output test even parity, as listed above.
+The saved transcript shows all five checks passing: the four parity calculations produce `0`, `1`, `1`, and `0`, and Test 05 confirms that the output holds `0` when `parity_calc_en_tb` is low. The Test 04 description in the saved transcript says "odd parity"; its `parity_type_tb = 0` stimulus and expected output test even parity, as listed above. The current testbench corrects this label to "even parity".
 
 ![UART parity calculator test transcript showing all five parity and hold checks passing](Tx/ParityCalc_transcript.png)
 
@@ -231,7 +231,7 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 
 - Add baud timing for operation from a faster system clock.
 - Add a top-level testbench for `TOP_Tx`, covering complete frames with parity enabled and disabled, both parity types, busy behavior, repeated requests, and reset during transmission.
-- Generalize the serializer shift register and completion count before supporting non-default data widths.
+- If configurable data widths are added later, update all data ports, serializer storage, completion counting, and tests together.
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Verify complete UART frames through `TX_OUT` and expand the existing module testbenches.
