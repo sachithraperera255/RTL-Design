@@ -7,9 +7,9 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 | Module | RTL design | Testbench and results |
 | --- | --- | --- |
 | [Serializer](#serializer) | Complete | Four frames, 40 checks pass; test summary and failure counting included; saved waveform and transcript included. |
-| [Parity calculator](#parity-calculator) | Complete | Five checks pass; saved waveform and transcript included. |
-| [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; saved waveform and transcript included. |
-| [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; saved waveform and transcript included. |
+| [Parity calculator](#parity-calculator) | Complete | Five checks pass; test summary and failure counting included; saved waveform and transcript included. |
+| [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; test summary and failure counting included; saved waveform and transcript included. |
+| [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmitter top level](#transmitter-top-level) | Integration complete | Top level and all four submodules compile with zero errors and warnings; full-frame simulation pending. |
 
 ## Transmitter Top Level
@@ -55,6 +55,23 @@ vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v
 
 The fixed 8-bit top level and all four submodules compile with zero errors and zero warnings. On October 27, 2026, the top level, all four submodules, and all four component testbenches were recompiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The component simulations passed four serializer frames (32 bit checks and four completion checks), five parity checks, six FSM checks, and four multiplexer checks. The module testbench results below describe the individual blocks. A dedicated top-level testbench, full-frame simulation results, and integration waveforms have not yet been added.
 
+On October 28, 2026, the four component modules and their testbenches were recompiled with zero errors and zero warnings, and all 55 existing checks passed: 40 serializer checks, five parity checks, six FSM checks, and four multiplexer checks. The serializer total includes four input-capture checks. These results cover the component benches; full-frame verification remains pending.
+
+### Running the Component Testbenches
+
+From the `UART/Tx` directory, create the library if it does not already exist, compile the modules and benches, and run each bench separately:
+
+```text
+vlib work
+vlog -work work Serializer.v Serializer_tb.v ParityCalc.v ParityCalc_tb.v FSM_Tx.v FSM_Tx_tb.v Mux_Tx.v Mux_Tx_tb.v
+vsim -c work.serializer_tb -do "run -all; quit -f"
+vsim -c work.ParityCalc_tb -do "run -all; quit -f"
+vsim -c work.FSM_Tx_tb -do "run -all; quit -f"
+vsim -c work.Mux_tb -do "run -all; quit -f"
+```
+
+Each bench counts checks and failures and prints a final total/passed/failed summary. A failed check causes `$fatal(1, ...)` at the end of the bench. A successful run prints a pass message and terminates with `$finish`. The saved transcript images predate the latest summary and termination updates.
+
 ## Serializer
 
 ### RTL Design
@@ -71,7 +88,7 @@ The fixed 8-bit top level and all four submodules compile with zero errors and z
 
 ### Testbench
 
-[Serializer_tb.v](Tx/Serializer_tb.v) applies reset, pulses the enable, and checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`. Each frame includes one input-capture check, eight serialized-bit checks, and a check that `serial_done` asserts with the final bit, giving 40 checks across all four frames. The testbench counts total checks and failures and prints a final total/passed/failed summary. Any failed check causes `$fatal(1, "SERIALIZER TESTBENCH FAILED")`; a successful run prints `ALL SERIALIZER TESTS PASSED` and pauses with `$stop`.
+[Serializer_tb.v](Tx/Serializer_tb.v) applies reset, pulses the enable, and checks input capture, each serialized bit, and completion for `8'd10`, `8'h7D`, `8'hFF`, and `8'hE2`. Each frame includes one input-capture check, eight serialized-bit checks, and a check that `serial_done` asserts with the final bit, giving 40 checks across all four frames. The testbench counts total checks and failures and prints a final total/passed/failed summary. Any failed check causes `$fatal(1, "SERIALIZER TESTBENCH FAILED")`; a successful run prints `ALL SERIALIZER TESTS PASSED` and terminates with `$finish`.
 
 ### Results
 
@@ -229,6 +246,8 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 
 ## Remaining Work
 
+- Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
+- Verify parity retention for both `0` and `1`, including multiple disabled clock cycles, and explicitly check asynchronous reset behavior.
 - Add baud timing for operation from a faster system clock.
 - Add a top-level testbench for `TOP_Tx`, covering complete frames with parity enabled and disabled, both parity types, busy behavior, repeated requests, and reset during transmission.
 - If configurable data widths are added later, update all data ports, serializer storage, completion counting, and tests together.

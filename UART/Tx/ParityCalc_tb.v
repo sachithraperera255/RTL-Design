@@ -9,6 +9,8 @@ module ParityCalc_tb();
 	reg			rst_tb;
 
 	wire		parity_bit_tb;
+	integer test_count = 0;
+	integer fail_count = 0;	
 
 
 	task initialize;
@@ -47,12 +49,14 @@ module ParityCalc_tb();
 		$display("Test 01: Odd count and odd parity: 1 ^ 1");
 		@(posedge clk_tb)
 		#1
+		test_count = test_count + 1;
 		if (parity_bit_tb == 0)
 		begin
 			$display("Test 01 passed: %b", parity_bit_tb);
 		end
 		else
 		begin
+			fail_count	= fail_count + 1;
 			$display("Test 01 failed: %b", parity_bit_tb);
 		end
 
@@ -65,12 +69,14 @@ module ParityCalc_tb();
 		$display("Test 02: Odd count and even parity: 1 ^ 0");
 		@(posedge clk_tb)
 		#1
+		test_count = test_count + 1;
 		if (parity_bit_tb == 1)
 		begin
 			$display("Test 02 passed: %b", parity_bit_tb);
 		end
 		else
 		begin
+			fail_count	= fail_count + 1;
 			$display("Test 02 failed: %b", parity_bit_tb);
 		end
 
@@ -83,12 +89,14 @@ module ParityCalc_tb();
 		$display("Test 03: Even count and odd parity: 0 ^ 1");
 		@(posedge clk_tb)
 		#1
+		test_count = test_count + 1;
 		if (parity_bit_tb == 1)
 		begin
 			$display("Test 03 passed: %b", parity_bit_tb);
 		end
 		else
 		begin
+			fail_count	= fail_count + 1;
 			$display("Test 03 failed: %b", parity_bit_tb);
 		end
 
@@ -101,12 +109,14 @@ module ParityCalc_tb();
 		$display("Test 04: Even count and even parity: 0 ^ 0");
 		@(posedge clk_tb)
 		#1
+		test_count = test_count + 1;
 		if (parity_bit_tb == 0)
 		begin
 			$display("Test 04 passed: %b", parity_bit_tb);
 		end
 		else
 		begin
+			fail_count	= fail_count + 1;
 			$display("Test 04 failed: %b", parity_bit_tb);
 		end
 		
@@ -118,18 +128,35 @@ module ParityCalc_tb();
 		$display("Test 05: Test the hold behavior when the parity_calc_en_tb signal is LOW");
 		@(posedge clk_tb)
 		#1
+		test_count = test_count + 1;
 		if (parity_bit_tb == 0)
 		begin
 			$display("Test 05 passed: The circuit hold the previos value %b", parity_bit_tb);
 		end
 		else
 		begin
+			fail_count	= fail_count + 1;
 			$display("Test 05   failed: The circuit did not hold the previous value %b", parity_bit_tb);
 		end
 		
 		
-		#10
-		$stop;
+		#20
+        // Final test summary
+        $display("\n----------------------------");
+        $display("Total checks : %0d", test_count);
+        $display("Passed       : %0d", test_count - fail_count);
+        $display("Failed       : %0d", fail_count);
+        $display("----------------------------");
+
+        if(fail_count > 0)
+        begin
+            $fatal(1, "PARITY CALCULATOR TESTBENCH FAILED");
+        end
+        else
+        begin
+            $display("ALL PARITY CALCULATOR TESTS PASSED");
+            $finish;
+        end
 	end
 
 

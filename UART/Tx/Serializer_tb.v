@@ -142,7 +142,7 @@ module serializer_tb();
         else
         begin
             $display("ALL SERIALIZER TESTS PASSED");
-            $stop;
+            $finish;
         end
 	end
 	
