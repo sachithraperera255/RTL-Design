@@ -1,7 +1,7 @@
 
 module ParityCalc
 	(
-		input wire [7:0]				data,
+		input wire [7:0]			data,
 		input wire					parity_calc_en,
 		input wire					parity_type,
 		input wire					clk,
