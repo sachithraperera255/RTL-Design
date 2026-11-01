@@ -10,7 +10,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 | [Parity calculator](#parity-calculator) | Complete | Five checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; test summary and failure counting included; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
-| [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings. |
+| [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings; saved waveform and two transcript images included. |
 
 ## Transmitter Top Level
 
@@ -53,7 +53,7 @@ vlib work
 vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v
 ```
 
-On November 1, 2026, the fixed 8-bit top level, all four submodules, and the top-level testbench were compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The top-level simulation completed at 236 ns with 36 checks passed and 0 failed. Integration waveform images have not yet been added.
+On November 1, 2026, the fixed 8-bit top level, all four submodules, and the top-level testbench were compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The top-level simulation completed at 236 ns with 36 checks passed and 0 failed. The saved top-level waveform and two transcript images below document the integrated simulation and its final check summary.
 
 ### Top-Level Testbench
 
@@ -88,6 +88,24 @@ Passed       : 36
 Failed       : 0
 ALL TX_TOP TESTS PASSED
 ```
+
+### Top-Level Simulation Results
+
+#### Simulation Waveform
+
+The waveform shows active-low reset, the one-cycle transmission requests, and the output for `8'hC8` without parity, `8'h96` with odd parity, and `8'h82` with even parity. `BUSY` is high during each frame and clears when the transmitter returns to idle. The final no-request case leaves `TX_OUT` high and `BUSY` low. The counters finish at 36 checks and 0 failures.
+
+![UART top-level waveform showing three transmitted frames, idle behavior, and zero failures](Tx/tx_top_waveform.png)
+
+#### Test Transcript
+
+The first transcript image shows ten successful RTL and testbench compilations with no errors, loading of the integrated transmitter, and passing start, data, stop, idle, and odd-parity checks.
+
+![UART top-level transcript part 1 showing successful compilation and passing frame checks](Tx/tx_top_transcript-1.png)
+
+The second image continues the frame checks, including even parity and the no-request idle case. Its final summary reports 36 total checks, 36 passed, 0 failed, and `ALL TX_TOP TESTS PASSED`.
+
+![UART top-level transcript part 2 showing remaining checks and all 36 tests passing](Tx/tx_top_transcript-2.png)
 
 ### Component Verification History
 
@@ -289,4 +307,4 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 - If configurable data widths are added later, update all data ports, serializer storage, completion counting, and tests together.
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
-- Save top-level integration waveform images and expand frame data coverage and the existing module testbenches.
+- Expand top-level frame data coverage and the existing module testbenches.
