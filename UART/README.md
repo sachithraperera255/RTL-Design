@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The top level and its four submodules compile successfully; full-frame functional verification and baud timing integration remain in progress.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress.
 
 ## Current Progress
 
@@ -10,7 +10,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 | [Parity calculator](#parity-calculator) | Complete | Five checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; test summary and failure counting included; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
-| [Transmitter top level](#transmitter-top-level) | Integration complete | Top level and all four submodules compile with zero errors and warnings; full-frame simulation pending. |
+| [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings. |
 
 ## Transmitter Top Level
 
@@ -53,9 +53,45 @@ vlib work
 vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v
 ```
 
-The fixed 8-bit top level and all four submodules compile with zero errors and zero warnings. On October 27, 2026, the top level, all four submodules, and all four component testbenches were recompiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The component simulations passed four serializer frames (32 bit checks and four completion checks), five parity checks, six FSM checks, and four multiplexer checks. The module testbench results below describe the individual blocks. A dedicated top-level testbench, full-frame simulation results, and integration waveforms have not yet been added.
+On November 1, 2026, the fixed 8-bit top level, all four submodules, and the top-level testbench were compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The top-level simulation completed at 236 ns with 36 checks passed and 0 failed. Integration waveform images have not yet been added.
 
-On October 28, 2026, the four component modules and their testbenches were recompiled with zero errors and zero warnings, and all 55 existing checks passed: 40 serializer checks, five parity checks, six FSM checks, and four multiplexer checks. The serializer total includes four input-capture checks. These results cover the component benches; full-frame verification remains pending.
+### Top-Level Testbench
+
+[TOP_UART_Tx_tb.v](Tx/TOP_UART_Tx_tb.v) defines the simulation module `TOP_TX_TB`. It applies an active-low reset, uses a 5 ns clock period, and pulses `DATA_VALID` for one cycle for each requested frame. Output checks occur 1 ns after rising clock edges.
+
+| Scenario | Data | Parity | Checks |
+| --- | --- | --- | --- |
+| Complete frame | `8'hC8` | Disabled | 11 |
+| Complete frame | `8'h96` | Odd; expected parity bit `1` | 12 |
+| Complete frame | `8'h82` | Even; expected parity bit `0` | 12 |
+| No transmission request | `8'h8C`, `DATA_VALID = 0` | Disabled | 1 |
+
+Each frame checks the low start bit, all eight data bits least significant bit first, the optional parity bit, the high stop bit, and the return to idle. `BUSY` must remain high during the frame and clear in idle. The no-request case checks `TX_OUT = 1` and `BUSY = 0`. Each check contributes once to the final summary.
+
+The bench prints total/passed/failed counts, calls `$fatal(1, "TX_TOP TESTBENCH FAILED")` on failure, and prints `ALL TX_TOP TESTS PASSED` before `$finish` on success. Reset is applied during setup; reset during transmission and requests while busy remain untested.
+
+### Running the Top-Level Testbench
+
+From the `UART/Tx` directory:
+
+```text
+vlib work
+vlog -work work TOP_UART_Tx.v Serializer.v ParityCalc.v FSM_Tx.v Mux_Tx.v TOP_UART_Tx_tb.v
+vsim -c work.TOP_TX_TB -do "run -all; quit -f"
+```
+
+Create the `work` library only if it does not already exist. The expected final summary is:
+
+```text
+Total checks : 36
+Passed       : 36
+Failed       : 0
+ALL TX_TOP TESTS PASSED
+```
+
+### Component Verification History
+
+On October 28, 2026, the four component modules and their testbenches were recompiled with zero errors and zero warnings, and all 55 existing checks passed: 40 serializer checks, five parity checks, six FSM checks, and four multiplexer checks. The serializer total includes four input-capture checks. These results cover the component benches; the top-level results above cover complete transmitter frames.
 
 ### Running the Component Testbenches
 
@@ -167,7 +203,7 @@ While in `IDLE`, `rst` must be high and `data_valid` asserted to request transmi
 | `PARITY` | `1` | `2'b11` | Selects the calculated parity bit and advances to `STOP` on the next rising edge. |
 | `STOP` | `1` | `2'b00` | Selects the stop/idle level and returns to `IDLE` on the next rising edge. |
 
-`serial_en` and `parity_calc_en` are low outside the accepted request in `IDLE`. The output multiplexer is implemented in `Mux_Tx.v` and connected to the FSM in `TOP_Tx`. Baud timing and full-frame verification remain integration work.
+`serial_en` and `parity_calc_en` are low outside the accepted request in `IDLE`. The output multiplexer is implemented in `Mux_Tx.v` and connected to the FSM in `TOP_Tx`. The top-level testbench covers complete frames with parity disabled and with both parity types; baud timing remains integration work.
 
 ### Testbench
 
@@ -177,7 +213,7 @@ The six checks cover request enables in `IDLE`, busy and multiplexer selection i
 
 ### Results
 
-The saved ModelSim transcript reports eight successful module/testbench compiles with no errors and all six FSM checks passing. The testbench drives the completion input directly; full transmitter integration remains to be verified.
+The saved ModelSim transcript reports eight successful module/testbench compiles with no errors and all six FSM checks passing. The component testbench drives the completion input directly; the top-level testbench separately checks complete frames through the integrated transmitter.
 
 | Test | Checked behavior | Result |
 | --- | --- | --- |
@@ -249,8 +285,8 @@ The saved ModelSim transcript shows successful compilation and all four multiple
 - Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
 - Verify parity retention for both `0` and `1`, including multiple disabled clock cycles, and explicitly check asynchronous reset behavior.
 - Add baud timing for operation from a faster system clock.
-- Add a top-level testbench for `TOP_Tx`, covering complete frames with parity enabled and disabled, both parity types, busy behavior, repeated requests, and reset during transmission.
+- Expand the top-level testbench with requests during busy, back-to-back requests, held-high `DATA_VALID`, input changes after acceptance, and reset during transmission.
 - If configurable data widths are added later, update all data ports, serializer storage, completion counting, and tests together.
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
-- Verify complete UART frames through `TX_OUT` and expand the existing module testbenches.
+- Save top-level integration waveform images and expand frame data coverage and the existing module testbenches.

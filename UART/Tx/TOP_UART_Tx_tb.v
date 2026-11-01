@@ -161,7 +161,7 @@ module TOP_TX_TB();
 			#1
 
 			test_count	= test_count + 1;
-			if(TX_OUT_TB === 1'b0 && BUSY_TB === 1'b0)
+			if(TX_OUT_TB === 1'b1 && BUSY_TB === 1'b0)
 			begin
 				$display("TEST PASSED");
 			end
@@ -172,21 +172,6 @@ module TOP_TX_TB();
 			end
 
 		end
-
-		$display("Testing IDLE STATE - before assert DATA_VALID high ");
-		@(posedge CLK_TB)
-		#1
-
-		if(TX_OUT_TB === 1'b1 && BUSY_TB === 1'b0)
-		begin
-			$display("TEST PASSED \n");
-		end
-		else
-		begin
-			fail_count = fail_count + 1;
-			$display("TEST FAILED \n");
-		end
-
 	
 	end
 	endtask
@@ -210,6 +195,9 @@ module TOP_TX_TB();
 
 		@(negedge CLK_TB)
 		test_config(8'h82, 1'b1, 1'b1, 1'b0);
+
+		@(negedge CLK_TB)
+		test_config(8'h8C, 1'b0, 1'b0, 1'b0);
 
 
 
