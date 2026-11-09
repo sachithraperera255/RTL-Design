@@ -1,6 +1,8 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter is also implemented, with 28 passing checks for edge counting and bit-period completion.
+
+See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter section](#receiver-edge-and-bit-counter) for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
 
 ## Current Progress
 
@@ -11,6 +13,7 @@ The serializer, parity calculator, transmit FSM, and output multiplexer are conn
 | [Transmit FSM](#transmit-fsm) | Complete | Six checks pass for a parity-enabled frame; test summary and failure counting included; saved waveform and transcript included. |
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings; saved waveform and two transcript images included. |
+| [Receiver edge and bit counter](#receiver-edge-and-bit-counter) | Counter implemented; receiver integration pending | 28 checks pass for disabled counting and prescales 4 and 8; saved waveform and transcript included. |
 
 ## Transmitter Top Level
 
@@ -297,6 +300,48 @@ The waveform shows the selector advancing through `00`, `01`, `10`, and `11`, wi
 The saved ModelSim transcript shows successful compilation and all four multiplexer checks passing.
 
 ![UART transmit multiplexer transcript showing all four checks passing](Tx/mux_tx_transcript.png)
+
+## Receiver Edge and Bit Counter
+
+[Rx/Edge_Counter.v](Rx/Edge_Counter.v) defines `edge_bit_counter`, a timing block for the receiver under development. It accepts a receiver clock, asynchronous active-low `rst`, `enable`, `data_phase`, and a six-bit `Prescale` input. Supported prescales are 4, 8, 16, and 32.
+
+| Output | Behavior |
+| --- | --- |
+| `edge_cnt[4:0]` | Counts receiver-clock positions from 0 through `Prescale - 1`, then wraps. |
+| `bit_done` | Combinational indication that counting is enabled, the prescale is valid, and the current position is the last in the bit period. |
+| `bit_cnt[2:0]` | Advances at bit completion only during `data_phase`; wraps after bit 7 and otherwise retains its value outside the data phase. |
+| `last_data_bit` | Asserts with `bit_done` during the data phase when `bit_cnt = 7`. |
+
+Reset clears both counters asynchronously. Disabling the block or selecting an unsupported prescale clears both counters on the next rising clock edge. The completion outputs are combinational and are not independently reset-gated.
+
+### Testbench and Results
+
+[Rx/Edge_Counter_tb.v](Rx/Edge_Counter_tb.v) checks `edge_cnt` and `bit_done` against expected values after each rising clock edge. Its 28 checks cover four disabled cycles, eight enabled cycles with prescale 4, and sixteen enabled cycles with prescale 8. All scenarios keep `data_phase = 0`.
+
+On November 8, 2026, the receiver counter and testbench compiled with ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Simulation finished at 156 ns with 28 checks and 0 failures. The five transmitter benches were also rerun, passing all 91 checks, for 119 passing checks across the UART project.
+
+Prescales 16 and 32, enabled operation with invalid prescales, data-bit counting, `last_data_bit`, and reset during operation remain untested. This block has not yet been integrated into a complete receiver.
+
+From `UART/Rx`, create the library if needed and run:
+
+```text
+vlib work
+vlog -work work Edge_Counter.v Edge_Counter_tb.v
+vsim -c work.edge_bit_counter_tb -do "run -all; quit -f"
+```
+
+Expected summary:
+
+```text
+Total Tests  : 28
+Failed Tests : 0
+```
+
+### Saved Simulation Results
+
+![Receiver edge counter waveform](Rx/edge_counter_waveform.png)
+
+![Receiver edge counter test transcript](Rx/edge_counter_transcript.png)
 
 ## Remaining Work
 
