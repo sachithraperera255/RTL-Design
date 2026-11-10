@@ -1,8 +1,8 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter is also implemented, with 28 passing checks for edge counting and bit-period completion.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter and data sampler are implemented. The counter has 28 passing checks for edge counting and bit-period completion; the sampler compiles successfully, with functional verification and receiver integration still pending.
 
-See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter section](#receiver-edge-and-bit-counter) for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
+See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter) and [data sampler](#receiver-data-sampler) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
 
 ## Current Progress
 
@@ -14,6 +14,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings; saved waveform and two transcript images included. |
 | [Receiver edge and bit counter](#receiver-edge-and-bit-counter) | Counter implemented; receiver integration pending | 28 checks pass for disabled counting and prescales 4 and 8; saved waveform and transcript included. |
+| [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | Compiles with zero errors and warnings; no dedicated functional testbench yet. |
 
 ## Transmitter Top Level
 
@@ -343,6 +344,43 @@ Failed Tests : 0
 
 ![Receiver edge counter test transcript](Rx/edge_counter_transcript.png)
 
+## Receiver Data Sampler
+
+[Rx/Data_Sample.v](Rx/Data_Sample.v) defines `data_sample`, which samples the receiver input near the center of each bit period. It uses the receiver edge count and computes `mid_point = prescale >> 1`.
+
+| Port | Direction | Behavior |
+| --- | --- | --- |
+| `rx_in` | Input | Serial receiver input to sample. |
+| `prescale[5:0]` | Input | Receiver clocks per bit; use 4, 8, 16, or 32 to match the edge counter. |
+| `edge_cnt[4:0]` | Input | Current receiver-clock position within the bit period. |
+| `clk` | Input | Receiver sampling clock; state updates on rising edges. |
+| `rst` | Input | Asynchronous active-low reset; clears the output and both stored samples. |
+| `data_sample_en` | Input | Enables sampling; when low, clears the stored samples on the next rising edge and retains `sample_bit`. |
+| `sample_bit` | Output | Registered sample result, retained until the next sampling decision or reset. |
+
+With prescale 4, the block samples `rx_in` once at `edge_cnt = 2`. With prescales 8, 16, and 32, it captures three samples at `mid_point - 1`, `mid_point`, and `mid_point + 1`, then updates `sample_bit` with their majority value on the third sampling edge.
+
+| Prescale | Sampling positions | Output update position |
+| --- | --- | --- |
+| 4 | 2 | 2 |
+| 8 | 3, 4, 5 | 5 |
+| 16 | 7, 8, 9 | 9 |
+| 32 | 15, 16, 17 | 17 |
+
+The majority decision is `(sample_one & sample_two) | (sample_one & rx_in) | (sample_two & rx_in)`. Keep the prescale stable throughout a bit period and enable sampling across the complete sampling window. The sampler does not reject unsupported prescales; its controller must supply a supported value. Receiver control and input synchronization remain integration work.
+
+### Compilation and Verification Status
+
+On November 10, 2026, `Data_Sample.v`, `Edge_Counter.v`, and `Edge_Counter_tb.v` compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The existing counter simulation was rerun and passed all 28 checks, finishing at 156 ns. This bench does not instantiate the sampler, so these checks do not establish sampler functionality. No dedicated sampler testbench is included yet.
+
+From `UART/Rx`, create the `work` library if needed, then compile:
+
+```text
+vlib work
+vlog -work work Edge_Counter.v Edge_Counter_tb.v Data_Sample.v
+vsim -c work.edge_bit_counter_tb -do "run -all; quit -f"
+```
+
 ## Remaining Work
 
 - Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
@@ -353,3 +391,5 @@ Failed Tests : 0
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Expand top-level frame data coverage and the existing module testbenches.
+- Add a dedicated receiver sampler testbench covering all supported prescales, all three-sample combinations, reset, disabled output retention, and sampling-enable timing.
+- Integrate receiver control, input synchronization, the edge counter, and the data sampler into a complete receiver.
