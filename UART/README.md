@@ -1,8 +1,8 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter and data sampler are implemented. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, and 8-bit deserializer are implemented. The deserializer compiles with zero errors and warnings; functional verification remains pending. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
 
-See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter) and [data sampler](#receiver-data-sampler) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
+See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), and [deserializer](#receiver-deserializer) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
 
 ## Current Progress
 
@@ -15,6 +15,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings; saved waveform and two transcript images included. |
 | [Receiver edge and bit counter](#receiver-edge-and-bit-counter) | Counter implemented; receiver integration pending | 28 checks pass for disabled counting and prescales 4 and 8; saved waveform and transcript included. |
 | [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | 177 checks pass across prescales 4, 8, 16, and 32, reset, and disabled output retention; saved waveform and result images included. |
+| [Receiver deserializer](#receiver-deserializer) | Implemented; receiver integration pending | Compiles with zero errors and warnings; dedicated testbench and functional simulation pending. |
 
 ## Transmitter Top Level
 
@@ -413,6 +414,33 @@ The waveform shows the supported prescales, sampled output, reset and enable beh
 
 ![Receiver data sampler test results showing 177 checks, zero failures, and all tests passed](Rx/data_sample_test_results.png)
 
+## Receiver Deserializer
+
+[Rx/Deserializer.v](Rx/Deserializer.v) defines `deserializer`, an 8-bit shift register that assembles sampled UART data bits into a parallel byte.
+
+| Port | Direction | Behavior |
+| --- | --- | --- |
+| `sample_bit` | Input | Sampled serial data bit to shift into the register. |
+| `deserial_en` | Input | Enables one shift on each rising edge of `clk`; keep low between data-bit capture events. |
+| `clk` | Input | Receiver clock; shifts occur on rising edges. |
+| `rst` | Input | Asynchronous active-low reset; clears `rx_out` to `8'd0`. |
+| `rx_out[7:0]` | Output | Current shift-register contents; retains its value while `deserial_en` is low. |
+
+Each enabled rising edge performs `rx_out <= {sample_bit, rx_out[7:1]}`. With eight UART data bits supplied least significant bit first, the register contains the complete byte after the eighth shift. For example, the sequence `1, 0, 1, 0, 0, 1, 0, 1` produces `8'hA5`. The output also exposes intermediate values as bits arrive.
+
+The block has no internal bit counter, frame-valid output, or automatic stop after eight shifts. Receiver control must enable exactly one capture per data bit, after the sampler result is available, and exclude start, parity, and stop bits. If the sampler updates `sample_bit` on the same clock edge, this block captures its previous value; schedule the capture on a later edge.
+
+### Compilation and Verification Status
+
+On November 12, 2026, the deserializer compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. A dedicated testbench and functional simulation remain pending; compilation alone does not verify byte assembly, reset, or disabled retention.
+
+From `UART/Rx`, create the `work` library if needed, then compile:
+
+```text
+vlib work
+vlog -work work Deserializer.v
+```
+
 ## Remaining Work
 
 - Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
@@ -424,4 +452,5 @@ The waveform shows the supported prescales, sampled output, reset and enable beh
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Expand top-level frame data coverage and the existing module testbenches.
 - Expand the receiver sampler testbench to cover every three-sample combination at each majority-voting prescale, disable/re-enable transitions within a sampling window, reset between samples, and retention of both output values while disabled.
-- Integrate receiver control, input synchronization, the edge counter, and the data sampler into a complete receiver.
+- Add a deserializer testbench covering LSB-first byte assembly, intermediate shifts, disabled output retention, and asynchronous reset during reception.
+- Integrate receiver control, input synchronization, the edge counter, data sampler, and deserializer into a complete receiver.
