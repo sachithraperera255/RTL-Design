@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter and data sampler are implemented. The counter has 28 passing checks for edge counting and bit-period completion; the sampler compiles successfully, with functional verification and receiver integration still pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter and data sampler are implemented. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
 
 See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter) and [data sampler](#receiver-data-sampler) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
 
@@ -14,7 +14,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Output multiplexer](#output-multiplexer) | Complete | Four checks pass; test summary and failure counting included; saved waveform and transcript included. |
 | [Transmitter top level](#transmitter-top-level) | Integration complete | Three complete frames and one no-request idle test; all 36 checks pass with zero compile errors and warnings; saved waveform and two transcript images included. |
 | [Receiver edge and bit counter](#receiver-edge-and-bit-counter) | Counter implemented; receiver integration pending | 28 checks pass for disabled counting and prescales 4 and 8; saved waveform and transcript included. |
-| [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | Compiles with zero errors and warnings; no dedicated functional testbench yet. |
+| [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | 177 checks pass across prescales 4, 8, 16, and 32, reset, and disabled output retention; saved waveform and result images included. |
 
 ## Transmitter Top Level
 
@@ -369,17 +369,49 @@ With prescale 4, the block samples `rx_in` once at `edge_cnt = 2`. With prescale
 
 The majority decision is `(sample_one & sample_two) | (sample_one & rx_in) | (sample_two & rx_in)`. Keep the prescale stable throughout a bit period and enable sampling across the complete sampling window. The sampler does not reject unsupported prescales; its controller must supply a supported value. Receiver control and input synchronization remain integration work.
 
-### Compilation and Verification Status
+### Testbench and Results
 
-On November 10, 2026, `Data_Sample.v`, `Edge_Counter.v`, and `Edge_Counter_tb.v` compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. The existing counter simulation was rerun and passed all 28 checks, finishing at 156 ns. This bench does not instantiate the sampler, so these checks do not establish sampler functionality. No dedicated sampler testbench is included yet.
+[Rx/Data_Sample_tb.v](Rx/Data_Sample_tb.v) defines `data_sample_tb`, a self-checking bench with a 5 ns clock period. It drives inputs on falling edges, compares the output with a reference model 1 ns after rising edges, and independently checks the final decision for each complete bit period. Reset checks run 0.1 ns after reset assertion, before the next rising clock edge.
 
-From `UART/Rx`, create the `work` library if needed, then compile:
+| Scenario | Stimulus and checks |
+| --- | --- |
+| Asynchronous reset | Clears the sampled output during initialization and after sampling a `1`; sampling resumes after reset. |
+| Prescale 4 | Single midpoint sampling with patterns `010` and `000`. |
+| Prescale 8 | Majority voting with patterns `101`, `010`, `111`, and `000`. |
+| Prescale 16 | Majority voting with patterns `011` and `100`. |
+| Prescale 32 | Majority voting with patterns `110` and `001`. |
+| Sampling disabled | Holds a sampled `1` for two disabled cycles while `rx_in = 0`. |
+
+For each three-bit pattern, the leftmost bit is the first sample, the middle bit is the midpoint sample, and the rightmost bit is the third sample. At prescale 4, only the middle bit determines the result.
+
+On November 12, 2026, the sampler and its dedicated testbench compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Simulation finished at 841 ns with 177 checks and 0 failures. The bench calls `$fatal(1, "Data sampling verification failed")` if any check fails and prints `ALL TESTS PASSED` before `$finish` on success.
+
+From `UART/Rx`, create the `work` library if needed, then run:
 
 ```text
 vlib work
-vlog -work work Edge_Counter.v Edge_Counter_tb.v Data_Sample.v
-vsim -c work.edge_bit_counter_tb -do "run -all; quit -f"
+vlog -work work Data_Sample.v Data_Sample_tb.v
+vsim -c work.data_sample_tb -do "run -all; quit -f"
 ```
+
+Expected final summary:
+
+```text
+DATA SAMPLE TEST RESULTS
+Total checks : 177
+Failed checks: 0
+ALL TESTS PASSED
+```
+
+The sampler bench drives `edge_cnt` directly; it does not verify integration with the edge counter or a complete receiver. Coverage does not yet include every three-sample combination at every majority-voting prescale, disabling partway through a sampling window, or reset between individual samples.
+
+### Saved Simulation Results
+
+The waveform shows the supported prescales, sampled output, reset and enable behavior, and final counters of 177 checks and 0 failures.
+
+![Receiver data sampler waveform showing supported prescales, reset, and disabled output retention](Rx/data_sample_waveform.png)
+
+![Receiver data sampler test results showing 177 checks, zero failures, and all tests passed](Rx/data_sample_test_results.png)
 
 ## Remaining Work
 
@@ -391,5 +423,5 @@ vsim -c work.edge_bit_counter_tb -do "run -all; quit -f"
 - Expand FSM coverage for parity-disabled frames, data wait cycles, latched parity settings, reset behavior, and enable deassertion.
 - Expand multiplexer coverage to include both data and parity levels, changes to unselected inputs, and unknown or high-impedance selector values.
 - Expand top-level frame data coverage and the existing module testbenches.
-- Add a dedicated receiver sampler testbench covering all supported prescales, all three-sample combinations, reset, disabled output retention, and sampling-enable timing.
+- Expand the receiver sampler testbench to cover every three-sample combination at each majority-voting prescale, disable/re-enable transitions within a sampling window, reset between samples, and retention of both output values while disabled.
 - Integrate receiver control, input synchronization, the edge counter, and the data sampler into a complete receiver.

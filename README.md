@@ -15,7 +15,7 @@ Verilog RTL design examples covering digital logic, counters, ALU design, regist
 - Mealy finite-state machine garage door controller with open and closed limit switches.
 - Programmable integer clock divider with an enable and active-low reset.
 - Fixed 8-bit UART transmitter with a `TOP_Tx` top level connecting the serializer, parity calculator, transmit FSM, and output multiplexer. The integrated RTL and top-level testbench compile with zero errors and warnings. All 36 top-level checks pass across three complete frames (parity disabled, odd parity, and even parity) and a no-request idle test. The top-level testbench and all four component testbenches have saved waveform and transcript PNGs; the top-level transcript includes the 36-check pass summary. Baud timing and additional corner-case coverage remain in progress. See [UART status](UART/README.md).
-- UART receiver timing and sampling blocks: an edge/bit counter with 28 passing checks and a data sampler with midpoint sampling at prescale 4 and three-sample majority voting at prescales 8, 16, and 32. Sampler functional verification and full receiver integration remain pending. See [UART receiver progress](UART/README.md#receiver-data-sampler).
+- UART receiver timing and sampling blocks: an edge/bit counter with 28 passing checks and a data sampler with midpoint sampling at prescale 4 and three-sample majority voting at prescales 8, 16, and 32. The sampler has a dedicated testbench with 177 passing checks across all four supported prescales, reset, and disabled output retention, with saved waveform and result images. Full receiver integration remains pending. See [UART receiver progress](UART/README.md#receiver-data-sampler).
 
 ## Repository Contents
 
