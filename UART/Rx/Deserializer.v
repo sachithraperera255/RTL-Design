@@ -11,6 +11,7 @@ module deserializer
 
 	always @(posedge clk or negedge rst)
 	begin
+
 		if(!rst)
 		begin
 			rx_out <= 8'd0;

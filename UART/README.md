@@ -1,8 +1,8 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, and 8-bit deserializer are implemented. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, and stop-bit checker are implemented. The stop-bit checker compiles with zero errors and warnings; dedicated functional verification remains pending. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
 
-See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), and [deserializer](#receiver-deserializer) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
+See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), [deserializer](#receiver-deserializer), and [stop-bit checker](#receiver-stop-bit-checker) sections for current receiver progress. Shared verification planning is available in [UART_Testbench_Corner_Cases.docx](UART_Testbench_Corner_Cases.docx).
 
 ## Current Progress
 
@@ -16,6 +16,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Receiver edge and bit counter](#receiver-edge-and-bit-counter) | Counter implemented; receiver integration pending | 28 checks pass for disabled counting and prescales 4 and 8; saved waveform and transcript included. |
 | [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | 177 checks pass across prescales 4, 8, 16, and 32, reset, and disabled output retention; saved waveform and result images included. |
 | [Receiver deserializer](#receiver-deserializer) | Implemented; receiver integration pending | 45 checks pass across five bytes, including intermediate shifts and disabled output retention; saved waveform and transcript included. |
+| [Receiver stop-bit checker](#receiver-stop-bit-checker) | Implemented; receiver integration pending | Compiles with zero errors and warnings; dedicated testbench and functional simulation pending. |
 
 ## Transmitter Top Level
 
@@ -475,6 +476,33 @@ The transcript includes the final summary of 45 total checks, 45 passed, 0 faile
 
 ![Receiver deserializer transcript showing 45 passing checks and zero failures](Rx/deserializer_transcript.png)
 
+## Receiver Stop-Bit Checker
+
+[Rx/Stop_check.v](Rx/Stop_check.v) defines `stop_bit`, which checks whether the sampled UART stop bit is high.
+
+| Port | Direction | Behavior |
+| --- | --- | --- |
+| `sample_bit` | Input | Sampled stop bit; `1` is valid and `0` indicates an invalid stop bit. |
+| `stop_check_en` | Input | Enables a check on each rising edge of `clk`. |
+| `clk` | Input | Receiver clock; updates occur on rising edges. |
+| `rst` | Input | Asynchronous active-low reset; clears `stop_error` to `0`. |
+| `stop_error` | Output | Registered result: `0` for a valid stop bit and `1` for an invalid stop bit; retains its value while checking is disabled. |
+
+When enabled, the checker assigns `stop_error <= ~sample_bit`. A later enabled check of a valid stop bit clears an earlier error; disabling the checker retains the previous result until the next enabled check or reset.
+
+Receiver control must assert `stop_check_en` only when the stop-bit sample is available. If the sampler updates `sample_bit` on the same rising edge, the checker sees its previous value, so schedule the check on a later edge. The block does not identify frame boundaries or generate a received-byte-valid signal.
+
+### Compilation and Verification Status
+
+The stop-bit checker compiles in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. A dedicated testbench and functional simulation remain pending. Valid and invalid stop bits, disabled result retention, error clearing, and asynchronous reset still need explicit verification.
+
+From `UART/Rx`, create the `work` library if needed, then compile:
+
+```text
+vlib work
+vlog -work work Stop_check.v
+```
+
 ## Remaining Work
 
 - Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
@@ -487,4 +515,5 @@ The transcript includes the final summary of 45 total checks, 45 passed, 0 faile
 - Expand top-level frame data coverage and the existing module testbenches.
 - Expand the receiver sampler testbench to cover every three-sample combination at each majority-voting prescale, disable/re-enable transitions within a sampling window, reset between samples, and retention of both output values while disabled.
 - Expand the deserializer testbench with dedicated asynchronous reset checks, reset during reception, pauses within a byte, and input changes while disabled.
-- Integrate receiver control, input synchronization, the edge counter, data sampler, and deserializer into a complete receiver.
+- Add a stop-bit checker testbench covering valid and invalid stop bits, disabled result retention, error clearing, and asynchronous reset.
+- Integrate receiver control, input synchronization, the edge counter, data sampler, deserializer, and stop-bit checker into a complete receiver.
