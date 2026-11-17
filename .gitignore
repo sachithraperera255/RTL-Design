@@ -17,3 +17,6 @@ transcript
 *.jou
 *.pb
 *.rpt
+
+# Local verification planning document
+/UART/UART_Testbench_Corner_Cases.docx

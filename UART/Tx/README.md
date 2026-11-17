@@ -69,4 +69,4 @@ The saved images document earlier simulations; some component transcripts predat
 - Test requests during busy, back-to-back requests, held-high `DATA_VALID`, input changes after acceptance, and reset during transmission.
 - Extend component coverage for serializer completion timing, both retained parity values, FSM controls, and multiplexer input changes.
 
-The [receiver](../README.md#receiver-edge-and-bit-counter) is under development. Shared verification planning is in [UART_Testbench_Corner_Cases.docx](../UART_Testbench_Corner_Cases.docx).
+The [receiver](../README.md#receiver-edge-and-bit-counter) is under development.
