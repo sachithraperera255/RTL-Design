@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, and start-bit checker are implemented. The start-bit checker compiles with zero errors and warnings; its dedicated testbench remains pending. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, and start-bit checker are implemented. The start-bit checker passes two enabled checks for valid and invalid start bits, with saved waveform and transcript images; its disabled scenario has no retention assertion. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
 
 See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), [deserializer](#receiver-deserializer), [stop-bit checker](#receiver-stop-bit-checker), and [start-bit checker](#receiver-start-bit-checker) sections for current receiver progress.
 
@@ -17,7 +17,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Receiver data sampler](#receiver-data-sampler) | Implemented; receiver integration pending | 177 checks pass across prescales 4, 8, 16, and 32, reset, and disabled output retention; saved waveform and result images included. |
 | [Receiver deserializer](#receiver-deserializer) | Implemented; receiver integration pending | 45 checks pass across five bytes, including intermediate shifts and disabled output retention; saved waveform and transcript included. |
 | [Receiver stop-bit checker](#receiver-stop-bit-checker) | Implemented; receiver integration pending | Two checks pass for valid and invalid stop bits; reset, disabled retention, and error-clearing coverage remain pending. |
-| [Receiver start-bit checker](#receiver-start-bit-checker) | Implemented; receiver integration pending | Compiles with zero errors and warnings; dedicated testbench pending. |
+| [Receiver start-bit checker](#receiver-start-bit-checker) | Implemented; receiver integration pending | Two enabled checks pass for valid and invalid start bits; disabled scenario exercised without an assertion; saved waveform and transcript included. |
 
 ## Transmitter Top Level
 
@@ -532,18 +532,41 @@ When enabled, the checker assigns `start_error <= sample_bit`. A later enabled c
 
 Receiver control must assert `start_check_en` only when the start-bit sample is available. If the sampler updates `sample_bit` on the same rising edge, the checker sees its previous value, so schedule the check on a later edge. The block does not detect the start edge, synchronize the serial input, or manage frame reception.
 
-### Compilation and Verification Status
+### Testbench and Results
 
-On November 16, 2026, `Start_Check.v` compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. A dedicated testbench and functional simulation results remain pending.
+[Rx/Start_Check_tb.v](Rx/Start_Check_tb.v) defines `start_check_tb`. It applies an active-low reset during setup, drives `sample_bit` and `start_check_en` on falling clock edges, and checks the enabled result one delay unit after the next rising edge.
 
-From `UART/Rx`, create the `work` library if needed, then compile:
+| Scenario | Inputs | Expected result | Result |
+| --- | --- | --- | --- |
+| Valid start bit | `start_check_en = 1`, `sample_bit = 0` | `start_error = 0` | Passed |
+| Invalid start bit | `start_check_en = 1`, `sample_bit = 1` | `start_error = 1` | Passed |
+| Checking disabled | `start_check_en = 0`, `sample_bit = 1` | Previous result retained | Exercised; no assertion |
+
+On November 17, 2026, the start-bit checker and testbench compiled and simulated in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. Both enabled checks printed `Test Passed`; the disabled scenario printed `START CHECK SIGNAL LOW`. The isolated run finished at 37 ps.
+
+The bench has no explicit `timescale` directive. Its clock uses `always #2.5`, and the observed timing depends on the simulator's default time unit and precision. Add an explicit timescale before relying on absolute simulation timing.
+
+From `UART/Rx`, create the `work` library if needed, then run:
 
 ```text
 vlib work
-vlog -work work Start_Check.v
+vlog -work work Start_Check.v Start_Check_tb.v
+vsim -c work.start_check_tb -do "run -all; quit -f"
 ```
 
-Planned checks include valid and invalid start bits, disabled result retention, clearing an asserted error with a subsequent valid start bit, and asynchronous reset during operation. Receiver integration remains pending.
+The bench prints `Test Passed` or `Test Failed` for each enabled check and ends with `$finish`. It has no aggregate result counters or `$fatal` on failure, so inspect both printed results rather than relying on the simulator exit status.
+
+Reset is applied during setup but has no dedicated assertion. The disabled scenario leaves `sample_bit` high and prints only a status message, so it does not verify retention. Clearing an asserted error with a subsequent valid start bit and asynchronous reset during operation also remain untested. Receiver integration remains pending.
+
+### Saved Simulation Results
+
+The waveform shows setup reset, a valid low start bit, an invalid high start bit, and the disabled scenario.
+
+![Receiver start-bit checker waveform showing reset, valid and invalid start bits, and a disabled scenario](Rx/start_check_waveform.png)
+
+The transcript shows two passing enabled checks followed by the disabled status message.
+
+![Receiver start-bit checker transcript showing two passing checks and the disabled status message](Rx/start_check_transcript.png)
 
 ## Remaining Work
 
@@ -558,5 +581,5 @@ Planned checks include valid and invalid start bits, disabled result retention, 
 - Expand the receiver sampler testbench to cover every three-sample combination at each majority-voting prescale, disable/re-enable transitions within a sampling window, reset between samples, and retention of both output values while disabled.
 - Expand the deserializer testbench with dedicated asynchronous reset checks, reset during reception, pauses within a byte, and input changes while disabled.
 - Expand the stop-bit checker testbench with disabled result retention, clearing an asserted error with a valid stop bit, and dedicated asynchronous reset checks; add result counters and failure termination.
-- Add a start-bit checker testbench covering valid and invalid start bits, disabled result retention, error clearing, and asynchronous reset.
+- Expand the start-bit checker testbench with disabled result retention, error clearing, and dedicated asynchronous reset checks; add result counters, failure termination, and an explicit timescale.
 - Integrate receiver control, input synchronization, the edge counter, data sampler, deserializer, start-bit checker, and stop-bit checker into a complete receiver.
