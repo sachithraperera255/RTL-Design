@@ -1,6 +1,6 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, start-bit checker, and parity checker are implemented. The receiver parity checker supports even and odd parity over an 8-bit received byte and compiles with zero errors and warnings; its dedicated testbench remains pending. The start-bit checker passes two enabled checks for valid and invalid start bits, with saved waveform and transcript images; its disabled scenario has no retention assertion. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, start-bit checker, and parity checker are implemented. The receiver parity checker supports even and odd parity over an 8-bit received byte; its self-checking testbench passes eight checks for matching and mismatched parity, disabled error retention, and error clearing, with saved waveform and transcript images. The start-bit checker passes two enabled checks for valid and invalid start bits, with saved waveform and transcript images; its disabled scenario has no retention assertion. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
 
 See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), [deserializer](#receiver-deserializer), [stop-bit checker](#receiver-stop-bit-checker), [start-bit checker](#receiver-start-bit-checker), and [parity checker](#receiver-parity-checker) sections for current receiver progress.
 
@@ -18,7 +18,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Receiver deserializer](#receiver-deserializer) | Implemented; receiver integration pending | 45 checks pass across five bytes, including intermediate shifts and disabled output retention; saved waveform and transcript included. |
 | [Receiver stop-bit checker](#receiver-stop-bit-checker) | Implemented; receiver integration pending | Two checks pass for valid and invalid stop bits; reset, disabled retention, and error-clearing coverage remain pending. |
 | [Receiver start-bit checker](#receiver-start-bit-checker) | Implemented; receiver integration pending | Two enabled checks pass for valid and invalid start bits; disabled scenario exercised without an assertion; saved waveform and transcript included. |
-| [Receiver parity checker](#receiver-parity-checker) | Implemented; receiver integration pending | Compiles with zero errors and warnings; dedicated testbench pending. |
+| [Receiver parity checker](#receiver-parity-checker) | Implemented; receiver integration pending | Eight checks pass for even and odd parity, disabled error retention, and error clearing; saved waveform and transcript included. |
 
 ## Transmitter Top Level
 
@@ -589,18 +589,56 @@ A subsequent enabled check with matching parity clears an earlier error. Disabli
 
 Receiver control must provide the complete byte and sampled parity bit before asserting `parity_check_en`, and keep the frame's parity type stable through the check. If the sampler or deserializer updates on the same rising edge, the checker sees its previous output, so schedule the check on a later edge. The block does not generate a received-byte-valid signal or manage frame boundaries.
 
-### Compilation and Verification Status
+### Testbench and Results
 
-On November 18, 2026, `Parity_Check.v` compiled in ModelSim Intel FPGA Edition 2020.1 with zero errors and zero warnings. A dedicated testbench and functional simulation results remain pending.
+[Rx/Parity_Check_tb.v](Rx/Parity_Check_tb.v) defines `parity_check_tb`, a self-checking bench. It drives the received byte, parity type, enable, and sampled parity bit on falling clock edges, then compares `parity_error` with its expected value one delay unit after the next rising edge. While checking is disabled, the expected result is retained.
 
-From `UART/Rx`, create the `work` library if needed, then compile:
+| Scenario | Received byte | Parity type | Sampled parity bit | Expected error |
+| --- | --- | --- | --- | --- |
+| Invalid even parity | `8'hB0` | Even | `0` | `1` |
+| Disabled error retention | `8'hB0` | Even | `1` | `1` (held) |
+| Valid even parity; clears error | `8'hB0` | Even | `1` | `0` |
+| Valid odd parity | `8'hB0` | Odd | `0` | `0` |
+| Invalid odd parity | `8'hB0` | Odd | `1` | `1` |
+| Valid even parity after reset | `8'hCC` | Even | `0` | `0` |
+| Invalid even parity | `8'hCC` | Even | `1` | `1` |
+| Valid odd parity; clears error | `8'h00` | Odd | `1` | `0` |
+
+Reset is applied during setup and again after the invalid odd-parity check. The reset scenario is not counted as a separate check and has no dedicated assertion, so the bench reports eight checks despite its nine numbered scenario comments.
+
+On November 20, 2026, the parity checker and testbench were compiled and simulated in ModelSim Intel FPGA Edition 2020.1 with zero compile errors and warnings. All eight checks passed with zero failures. The bench prints total, passed, and failed counts, calls `$fatal(1, "Parity check tests failed")` on failure, and prints `ALL TESTS PASSED` before `$finish` on success.
+
+The bench has no explicit `timescale` directive. Its clock uses `always #2.5`; absolute timing depends on the simulator's default time unit and precision. The saved ModelSim run finished at 85 ps. Add an explicit timescale before relying on absolute simulation timing.
+
+From `UART/Rx`, create the `work` library if needed, then run:
 
 ```text
 vlib work
-vlog -work work Parity_Check.v
+vlog -work work Parity_Check.v Parity_Check_tb.v
+vsim -c work.parity_check_tb -do "run -all; quit -f"
 ```
 
-Planned checks include matching and mismatched parity for both parity types, bytes with odd and even population counts, disabled result retention, clearing an asserted error with a subsequent correct parity bit, and asynchronous reset during operation. Receiver integration remains pending.
+Expected final summary:
+
+```text
+PARITY CHECK TEST RESULTS
+Total Tests : 8
+Passed Tests: 8
+Failed Tests: 0
+ALL TESTS PASSED
+```
+
+Dedicated asynchronous reset assertions, retention of a zero result, multiple disabled cycles with changing inputs, and broader byte coverage remain to be added. This bench verifies the checker in isolation; receiver integration remains pending.
+
+### Saved Simulation Results
+
+The waveform shows even and odd parity checks, disabled error retention, reset after an error, and final counters of eight checks and zero failures.
+
+![Receiver parity checker waveform showing parity checks, disabled retention, reset, and zero failures](Rx/parity_check_waveform.png)
+
+The transcript shows eight passing checks and the final `ALL TESTS PASSED` summary.
+
+![Receiver parity checker transcript showing eight passing checks and zero failures](Rx/parity_check_transcript.png)
 
 ## Remaining Work
 
@@ -616,5 +654,5 @@ Planned checks include matching and mismatched parity for both parity types, byt
 - Expand the deserializer testbench with dedicated asynchronous reset checks, reset during reception, pauses within a byte, and input changes while disabled.
 - Expand the stop-bit checker testbench with disabled result retention, clearing an asserted error with a valid stop bit, and dedicated asynchronous reset checks; add result counters and failure termination.
 - Expand the start-bit checker testbench with disabled result retention, error clearing, and dedicated asynchronous reset checks; add result counters, failure termination, and an explicit timescale.
-- Add a receiver parity checker testbench for both parity types, matching and mismatched parity, disabled result retention, error clearing, and asynchronous reset.
+- Expand the receiver parity checker testbench with dedicated asynchronous reset assertions, retention of a zero result, multiple disabled cycles with changing inputs, broader byte coverage, and an explicit timescale.
 - Integrate receiver control, input synchronization, the edge counter, data sampler, deserializer, start-bit checker, stop-bit checker, and parity checker into a complete receiver.
