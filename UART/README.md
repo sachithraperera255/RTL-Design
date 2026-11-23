@@ -1,8 +1,8 @@
 # UART (Work in Progress)
 
-The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, start-bit checker, and parity checker are implemented. The receiver parity checker supports even and odd parity over an 8-bit received byte; its self-checking testbench passes eight checks for matching and mismatched parity, disabled error retention, and error clearing, with saved waveform and transcript images. The start-bit checker passes two enabled checks for valid and invalid start bits, with saved waveform and transcript images; its disabled scenario has no retention assertion. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. Full receiver integration remains pending.
+The serializer, parity calculator, transmit FSM, and output multiplexer are connected in the `TOP_Tx` transmitter top level. The integrated transmitter passes 36 checks covering three complete frames, both parity types, parity-disabled transmission, and idle behavior. Baud timing integration and additional corner-case coverage remain in progress. The receiver edge and bit counter, data sampler, 8-bit deserializer, stop-bit checker, start-bit checker, and parity checker are implemented. The receiver parity checker supports even and odd parity over an 8-bit received byte; its self-checking testbench passes eight checks for matching and mismatched parity, disabled error retention, and error clearing, with saved waveform and transcript images. The start-bit checker passes two enabled checks for valid and invalid start bits, with saved waveform and transcript images; its disabled scenario has no retention assertion. The stop-bit checker passes two checks for valid and invalid stop bits. The deserializer passes 45 checks across five bytes, including intermediate shifts and disabled output retention, with saved waveform and transcript images. The counter has 28 passing checks for edge counting and bit-period completion; the sampler has 177 passing checks across all supported prescales, asynchronous reset, and disabled output retention. The receiver control FSM now includes DATA, PARITY, and STOP behavior, checker enables based on edge position, and delayed start/stop validation at prescale 4. The FSM is work in progress: compilation passes, but dedicated simulation, reset handling, and integrated timing verification remain pending. Full receiver integration remains pending.
 
-See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), [deserializer](#receiver-deserializer), [stop-bit checker](#receiver-stop-bit-checker), [start-bit checker](#receiver-start-bit-checker), and [parity checker](#receiver-parity-checker) sections for current receiver progress.
+See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and verification commands, and the [receiver counter](#receiver-edge-and-bit-counter), [data sampler](#receiver-data-sampler), [deserializer](#receiver-deserializer), [stop-bit checker](#receiver-stop-bit-checker), [start-bit checker](#receiver-start-bit-checker), [parity checker](#receiver-parity-checker), and [control FSM](#receiver-control-fsm) sections for current receiver progress.
 
 ## Current Progress
 
@@ -19,6 +19,7 @@ See the [UART_Tx README](Tx/README.md) for transmitter setup, interface, and ver
 | [Receiver stop-bit checker](#receiver-stop-bit-checker) | Implemented; receiver integration pending | Two checks pass for valid and invalid stop bits; reset, disabled retention, and error-clearing coverage remain pending. |
 | [Receiver start-bit checker](#receiver-start-bit-checker) | Implemented; receiver integration pending | Two enabled checks pass for valid and invalid start bits; disabled scenario exercised without an assertion; saved waveform and transcript included. |
 | [Receiver parity checker](#receiver-parity-checker) | Implemented; receiver integration pending | Eight checks pass for even and odd parity, disabled error retention, and error clearing; saved waveform and transcript included. |
+| [Receiver control FSM](#receiver-control-fsm) | All five states implemented; work in progress | Compiles with zero errors and warnings; no dedicated FSM testbench or integrated receiver simulation yet. |
 
 ## Transmitter Top Level
 
@@ -640,6 +641,35 @@ The transcript shows eight passing checks and the final `ALL TESTS PASSED` summa
 
 ![Receiver parity checker transcript showing eight passing checks and zero failures](Rx/parity_check_transcript.png)
 
+## Receiver Control FSM
+
+[Rx/FSM_Rx.v](Rx/FSM_Rx.v) defines `FSM_RX`, which controls reception of eight data bits with optional parity and one stop bit. The implementation is work in progress and has not been verified with a dedicated FSM testbench or a complete receiver top level.
+
+| State | Current behavior |
+| --- | --- |
+| `IDLE` | Waits for a low `rx_in` to begin reception. At prescale 4, also evaluates the pending stop/parity result from the previous frame. |
+| `START` | Enables counting and sampling, requests a start-bit check, and enters DATA if the start bit is valid; otherwise returns to IDLE. |
+| `DATA` | Asserts `data_phase`, enables counting and sampling, and pulses `deserializer_en` on `bit_done`. On `last_data_bit`, selects PARITY when parity is enabled or STOP otherwise. |
+| `PARITY` | Enables counting and sampling, requests a parity check, and advances to STOP on `bit_done`. |
+| `STOP` | Enables counting and sampling, requests a stop-bit check, and returns to IDLE on `bit_done`. |
+
+Checker enables use `edge_count`, with a check position of `(prescale >> 1) + 2` for prescales 8, 16, and 32. This allows the sampler's registered majority result to settle before checking. At prescale 4, the check position is 3; `check_pending_4x` delays the START decision until the registered check result is available, and delays stop/parity validation until IDLE.
+
+For prescales 8, 16, and 32, `data_valid` asserts at stop-bit completion when `stop_error` is low and either parity is disabled or `parity_error` is low. At prescale 4, the same condition is evaluated in IDLE. `parity_en` is used directly, so it must remain stable through frame validation. The `bit_count` input is currently unused; DATA completion uses `last_data_bit` from the edge/bit counter.
+
+### Verification and Remaining FSM Work
+
+On November 22, 2026, ModelSim Intel FPGA Edition 2020.1 compiled the FSM, all six receiver component modules, and the parity-checker testbench with zero errors and zero warnings. The existing parity-checker simulation was rerun: eight checks passed with zero failures. These checks verify the parity checker in isolation; they do not verify the FSM or complete frames.
+
+From `UART/Rx`, create the `work` library if needed, then compile:
+
+```text
+vlib work
+vlog -work work FSM_Rx.v Edge_Counter.v Data_Sample.v Deserializer.v Start_Check.v Stop_check.v Parity_Check.v
+```
+
+The asynchronous active-low reset currently initializes `current_state` but does not initialize `check_pending_4x`. Add that reset assignment and verify that reset cannot produce a spurious `data_valid` pulse. A dedicated FSM bench must cover valid and invalid start/stop bits, parity-enabled and parity-disabled frames, both parity results, all four prescales, back-to-back frames, and reset during reception. Integration must also verify checker latency, deserializer timing, and the counter's DATA transition at prescale 4.
+
 ## Remaining Work
 
 - Check that serializer completion stays low before the final bit and clears on the following clock edge; verify reset during serialization and input capture while the external data changes.
@@ -655,4 +685,5 @@ The transcript shows eight passing checks and the final `ALL TESTS PASSED` summa
 - Expand the stop-bit checker testbench with disabled result retention, clearing an asserted error with a valid stop bit, and dedicated asynchronous reset checks; add result counters and failure termination.
 - Expand the start-bit checker testbench with disabled result retention, error clearing, and dedicated asynchronous reset checks; add result counters, failure termination, and an explicit timescale.
 - Expand the receiver parity checker testbench with dedicated asynchronous reset assertions, retention of a zero result, multiple disabled cycles with changing inputs, broader byte coverage, and an explicit timescale.
+- Initialize the receiver FSM pending-check register on reset and add a dedicated FSM testbench, including prescale-4 timing and back-to-back frames.
 - Integrate receiver control, input synchronization, the edge counter, data sampler, deserializer, start-bit checker, stop-bit checker, and parity checker into a complete receiver.

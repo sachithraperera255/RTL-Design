@@ -20,6 +20,7 @@ module parity_check
 		else if(parity_check_en)
 		begin
 			parity_error <= ((^rx_out)^parity_type)^sample_bit;
+			// parity_error output 0 when correct parity is received
 		end
 	end
 
